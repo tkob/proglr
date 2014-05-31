@@ -269,6 +269,14 @@ structure LrItem :> LRITEM = struct
       fun move (c, n, l, next::rest) =
         if next = symbol then SOME (c, n, l @ [next], rest)
         else NONE
+        | move (c, n, l, []) = (
+          print (case c of SOME c => c ^ "\n" | NONE => "");
+          print (Symbol.show n ^ "\n");
+          List.app (fn s => print (Symbol.show s ^ " ")) l;
+          raise Match
+          )
+
+
       val moved = List.mapPartial move items
     in
       expand moved grammar
@@ -910,5 +918,5 @@ fun main () =
       TextIO.closeOut parserOutStream
   end
   handle Bind =>
-    raise Fail ("usage: mlbnfc parserFilename")
+    raise Fail ("usage: mlbnfc outputFilename")
 
