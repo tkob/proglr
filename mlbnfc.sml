@@ -212,6 +212,7 @@ signature LRITEM = sig
   val expand : items -> Grammar.rule list -> items
   val moveOver : items -> Symbol.symbol -> Grammar.rule list -> items
   val nextSymbols : items -> Symbol.symbol list
+  val endsWithDot : item -> bool
   val kindOf : items -> kind
   val consOf : item -> Grammar.constructor
   val lhsOf : item -> Symbol.symbol
@@ -292,18 +293,16 @@ structure LrItem :> LRITEM = struct
       loop lrItems []
     end
 
+  fun endsWithDot (_, _, _, []) = true
+    | endsWithDot _ = false
+
   fun kindOf items =
-    let
-      fun endsWithDot (_, _, _, []) = true
-        | endsWithDot _ = false
-    in
-      if List.all endsWithDot items then
-        if length items = 1 then Reduce
-        else ReduceReduce
-      else
-        if List.exists endsWithDot items then ShiftReduce
-        else Shift
-    end
+    if List.all endsWithDot items then
+      if length items = 1 then Reduce
+      else ReduceReduce
+    else
+      if List.exists endsWithDot items then ShiftReduce
+      else Shift
 
   fun consOf (cons, _, _, _) = cons
   fun lhsOf (_, lhs, _, _) = lhs
