@@ -207,13 +207,11 @@ end
 signature LRITEM = sig
   eqtype item
   type items = item list
-  datatype kind = Shift | Reduce | ShiftReduce | ReduceReduce
   val fromRule : Grammar.rule -> item
   val expand : items -> Grammar.rule list -> items
   val moveOver : items -> Symbol.symbol -> Grammar.rule list -> items
   val nextSymbols : items -> Symbol.symbol list
-  val endsWithDot : item -> bool
-  val kindOf : items -> kind
+  val partition :items -> items * items
   val consOf : item -> Grammar.constructor
   val lhsOf : item -> Symbol.symbol
   val rhsBeforeDot : item -> Symbol.symbol list
@@ -230,8 +228,6 @@ structure LrItem :> LRITEM = struct
     type item = Grammar.constructor * lhs * rhs_before_dot * rhs_after_dot
     type items = item list
   end
-
-  datatype kind = Shift | Reduce | ShiftReduce | ReduceReduce
 
   fun fromRule rule = (Grammar.consOf rule, Grammar.lhsOf rule, [], Grammar.rhsOf rule)
 
@@ -267,21 +263,17 @@ structure LrItem :> LRITEM = struct
 
   fun moveOver items symbol grammar =
     let
-      fun move (c, n, l, next::rest) =
-        if next = symbol then SOME (c, n, l @ [next], rest)
-        else NONE
-        | move (c, n, l, []) = (
-          print (case c of SOME c => c ^ "\n" | NONE => "");
-          print (Symbol.show n ^ "\n");
-          List.app (fn s => print (Symbol.show s ^ " ")) l;
-          raise Match
-          )
-
-
+      fun move (c, n, l, []) = NONE
+        | move (c, n, l, next::rest) =
+          if next = symbol then SOME (c, n, l @ [next], rest)
+          else NONE
       val moved = List.mapPartial move items
     in
       expand moved grammar
     end
+
+  fun endsWithDot (_, _, _, []) = true
+    | endsWithDot _ = false
 
   fun nextSymbols lrItems =
     let
@@ -293,16 +285,8 @@ structure LrItem :> LRITEM = struct
       loop lrItems []
     end
 
-  fun endsWithDot (_, _, _, []) = true
-    | endsWithDot _ = false
-
-  fun kindOf items =
-    if List.all endsWithDot items then
-      if length items = 1 then Reduce
-      else ReduceReduce
-    else
-      if List.exists endsWithDot items then ShiftReduce
-      else Shift
+  fun partition lrItems =
+    List.partition endsWithDot lrItems
 
   fun consOf (cons, _, _, _) = cons
   fun lhsOf (_, lhs, _, _) = lhs
@@ -316,7 +300,7 @@ structure LrItem :> LRITEM = struct
 end
 
 structure State = struct
-  datatype state = Accepting of LrItem.item * Grammar.constructor | NonAccepting of LrItem.items
+  type state = LrItem.items * LrItem.items
 end
 
 signature AUTOMATON = sig
@@ -330,7 +314,6 @@ signature AUTOMATON = sig
   val stateOf : state_number -> automaton -> state
   val nextStatesOf : state_number -> automaton -> (alphabet * state_number) list
   val numbersAndStates : automaton -> (state_number * state) list
-  val isAccepting : state_number -> automaton -> bool
   val printAutomaton : automaton -> unit
 end
 
@@ -345,19 +328,12 @@ structure Automaton :> AUTOMATON where
   type transition = state_number * alphabet * state_number
   type automaton = LrItem.items Intern.pool * transition list
 
-  fun stateOfLrItems lrItems =
-    case LrItem.kindOf lrItems of
-      LrItem.Shift => NonAccepting lrItems
-    | LrItem.Reduce =>
-        let val lrItem = hd lrItems in
-          Accepting (lrItem, LrItem.consOf lrItem)
-        end
-    | _ => raise Fail "conflict"
+  fun stateOfLrItems lrItems = LrItem.partition lrItems
 
   fun makeAutomaton grammar =
     let
-      val startRule = Grammar.makeRule (NONE , Symbol.S', [Grammar.startSymbolOf grammar, Symbol.EOF])
-      val rules = startRule::Grammar.rulesOf grammar
+      val startRule = Grammar.makeRule (NONE , Symbol.S', [Grammar.startSymbolOf grammar])
+      val rules = Grammar.rulesOf grammar
       val startState = LrItem.expand [LrItem.fromRule startRule] rules
       val (startStateNumber, pool) = Intern.intern startState Intern.emptyPool
   
@@ -389,11 +365,6 @@ structure Automaton :> AUTOMATON where
   fun numbersAndStates (pool, _) = List.map (fn (n, items) => (n, stateOfLrItems items)) (Intern.toList pool)
   fun nextStatesOf state (_, transitions) =
     List.map (fn (_, symbol, next) => (symbol, next)) (List.filter (fn (s', _, _) => state = s') transitions)
-
-  fun isAccepting stateNumber automaton =
-    case stateOf stateNumber automaton of
-      Accepting _ => true
-    | NonAccepting _ => false
 
   fun printStates states =
     let
@@ -506,6 +477,9 @@ structure MLAst = struct
       let
         fun printMrule indent pre (pat, exp) =
           out outs indent (pre ^ showPat pat ^ " => " ^ showExp exp)
+          handle BlockExp =>
+            (out outs indent (pre ^ showPat pat ^ " =>");
+            printExp outs (indent + 2) exp)
         fun printMrules indent [] = ()
           | printMrules indent (first::rest) =
           (printMrule indent "  " first;
@@ -714,83 +688,83 @@ structure CodeGenerator = struct
       val pat = if holdSv symbol
                 then MLAst.AsisPat (Symbol.show symbol ^ " _")
                 else MLAst.AsisPat (Symbol.show symbol)
-      val exp = MLAst.AsisExp
-        ("st" ^ Int.toString next ^ 
-        (if Automaton.isAccepting next automaton
-        then " (stackItem::stack) strm"
-        else " (stackItem::stack) next strm'"))
+      val (reduce, shift) = Automaton.stateOf next automaton
+      val stNum = Int.toString next
+      val shiftExp =
+        if shift = [] then "[]"
+        else "[(" ^ stNum ^ ", (stackItem::stack))]" 
+      val reduceExp =
+        if reduce = [] then ""
+        else " @ st" ^ stNum ^ "r (stackItem::stack)"
+      val exp = MLAst.AsisExp (shiftExp ^ reduceExp)
     in
       (pat, exp)
     end
   fun makeStFvalbind automaton stateNumber =
     let
       val n = Int.toString stateNumber
-    in
-      case Automaton.stateOf stateNumber automaton of
-        State.Accepting (item, _) =>
-          let
-            val cons = LrItem.consOf item
-            val lhs = LrItem.lhsOf item
-            val rhs = LrItem.rhsBeforeDot item
-            val index = ref 0
-            val stackPat =
-              List.foldl
-              (fn (sym, pats) =>
-                let
-                  val n = Int.toString (!index)
-                  val sv = if holdSv sym then SOME ("sv" ^ n) else NONE
-                in
-                  index := !index + 1;
-                  (sym, sv, "stNum" ^ n, "pos"^ n)::pats
-                end)
-              []
-              rhs
-            val stackPatString =
+      val (reduce, shift) = Automaton.stateOf stateNumber automaton
+      fun stReduce item = 
+        let
+          val cons = LrItem.consOf item
+          val lhs = LrItem.lhsOf item
+          val rhs = LrItem.rhsBeforeDot item
+          val index = ref 0
+          val stackPat =
+            List.foldl
+            (fn (sym, pats) =>
               let
-                fun toString (sym, sv, stNum, pos) =
-                  "("
-                  ^ Symbol.show sym
-                  ^ (case sv of SOME sv => " " ^ sv | NONE => "")
-                  ^ ", "
-                  ^ pos
-                  ^ ", "
-                  ^ stNum
-                  ^ ")::"
+                val n = Int.toString (!index)
+                val sv = if holdSv sym then SOME ("sv" ^ n) else NONE
               in
-                concat (map toString stackPat)
-              end
-            val svalues = rev (List.mapPartial #2 stackPat)
-            val svaluesAst =
-              case cons of 
-                SOME c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (map MLAst.AsisExp svalues))
-              | NONE => MLAst.TupleExp (map MLAst.AsisExp svalues)
-            val currentAst = MLAst.TupleExp [MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst), MLAst.AsisExp "pos0"]
-          in
-            ("st" ^ n, [
-              ([MLAst.AsisPat ("(" ^ stackPatString ^ "stack)"),
-                MLAst.AsisPat "strm"],
-                if lhs = Symbol.S' then
-                  MLAst.AsisExp "sv0"
-                else
-                  MLAst.AsisExp ("go stNum0 stack "
-                    ^ MLAst.showExp currentAst
-                    ^ " strm"))
-            ])
-          end
-      | State.NonAccepting items =>
-          let
-            val nextStates = Automaton.nextStatesOf stateNumber automaton
-            val lastMrule = (MLAst.AsisPat "c", MLAst.AsisExp ("raise Parse (c, pos, " ^ n ^ ")"))
-            val stMrules = List.map (makeStMrule automaton) nextStates @ [lastMrule]
-          in
-            ("st" ^ n, [
-              (map MLAst.AsisPat ["stack", "(category, pos)", "strm"],
-              MLAst.Let ([
-                MLAst.AsisDec "val (next, strm') = shift strm",
-                MLAst.AsisDec ("val stackItem = (category, pos, " ^ n ^ ")")],
-                MLAst.Case (MLAst.AsisExp "category", stMrules)))
-            ])
-          end
+                index := !index + 1;
+                (sym, sv, "stNum" ^ n, "pos"^ n)::pats
+              end)
+            []
+            rhs
+          val stackPatString =
+            let
+              fun toString (sym, sv, stNum, pos) =
+                "("
+                ^ Symbol.show sym
+                ^ (case sv of SOME sv => " " ^ sv | NONE => "")
+                ^ ", "
+                ^ pos
+                ^ ", "
+                ^ stNum
+                ^ ")::"
+            in
+              concat (map toString stackPat)
+            end
+          val svalues = rev (List.mapPartial #2 stackPat)
+          val svaluesAst =
+            case cons of 
+              SOME c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (map MLAst.AsisExp svalues))
+            | NONE => MLAst.TupleExp (map MLAst.AsisExp svalues)
+          val currentAst = MLAst.TupleExp [MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst), MLAst.AsisExp "pos0"]
+        in
+          ("st" ^ n ^ "r", [
+              if lhs = Symbol.S' then
+                ([MLAst.AsisPat "stack"], MLAst.AsisExp "[(~1, stack)]")
+              else
+                ([MLAst.AsisPat ("(" ^ stackPatString ^ "stack)")], MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst))
+          ])
+        end
+      val st = 
+        let
+          val nextStates = Automaton.nextStatesOf stateNumber automaton
+          val lastMrule = (MLAst.AsisPat "c", MLAst.AsisExp ("[] (* raise Parse (c, pos, " ^ n ^ ") *)"))
+          val stMrules = List.map (makeStMrule automaton) nextStates @ [lastMrule]
+        in
+          ("st" ^ n, [
+            (map MLAst.AsisPat ["stack", "(category, pos)"],
+            MLAst.Let ([
+              MLAst.AsisDec ("val stackItem = (category, pos, " ^ n ^ ")")],
+              MLAst.Case (MLAst.AsisExp "category", stMrules)))
+          ])
+        end
+    in
+      (if shift = [] then [] else [st]) @ map stReduce reduce
     end
 
   fun generateParser outs grammar =
@@ -802,7 +776,6 @@ structure CodeGenerator = struct
       val automaton = Automaton.makeAutomaton grammar
       val numbersAndStates = Automaton.numbersAndStates automaton
       val stateNumbers = List.map #1 numbersAndStates
-      val accepting = List.filter (fn (n,s) => Automaton.isAccepting n automaton) numbersAndStates;
     
       (* Token *)
       val tokenDatatype = makeTokenDatatype "token" tokens
@@ -829,22 +802,16 @@ structure CodeGenerator = struct
            MLAst.Dec fromTokenFun])]
     
       (* go function *)
-      val nonacceptingStateNumbers = List.filter (fn number => not (Automaton.isAccepting number automaton)) stateNumbers
+      val nonacceptingStateNumbers = List.filter (fn number => let val (_, s) = Automaton.stateOf number automaton in s <> [] end) stateNumbers
       val stateNumbersAsString = List.map Int.toString nonacceptingStateNumbers
-      val goMrules = List.map (fn n => (MLAst.AsisPat n, MLAst.AsisExp ("st" ^ n ^ " stack current strm"))) stateNumbersAsString
-      val goCase = MLAst.Case (MLAst.AsisExp "stateNumber", goMrules)
+      val goMrules = List.map (fn n => (MLAst.AsisPat n, MLAst.AsisExp ("st" ^ n ^ " stack current"))) stateNumbersAsString
+      val goCase = MLAst.Case (MLAst.AsisExp "stateNumber", goMrules @ [(MLAst.AsisPat "_", MLAst.AsisExp "[]")])
       val goFvalbind =
         ("go", [
-          (map MLAst.AsisPat ["stateNumber", "stack", "current", "strm"], goCase)
+          (map MLAst.AsisPat ["stateNumber", "stack", "current"], goCase)
         ])
     
-      val shiftFun = MLAst.Fun [
-        ("shift", [([MLAst.AsisPat "strm"],
-          MLAst.Let (
-            [MLAst.AsisDec "val pos = Lex.getPos strm",
-             MLAst.AsisDec "val (token, span, strm') = Lex.lex sourcemap strm"],
-            MLAst.AsisExp "((Category.fromToken token, pos), strm')"))])]
-      val st = List.map (makeStFvalbind automaton) (Automaton.stateNumbers automaton)
+      val st = List.concat (List.map (makeStFvalbind automaton) (Automaton.stateNumbers automaton))
       (* state machine function *)
       val stFuns = MLAst.Fun (goFvalbind::st)
     
@@ -856,15 +823,35 @@ structure CodeGenerator = struct
           MLAst.ValSpec [("lex", MLAst.AsisType "AntlrStreamPos.sourcemap -> strm -> tok * AntlrStreamPos.span * strm")],
           MLAst.ValSpec [("getPos", MLAst.AsisType "strm -> pos")]])]
 
+      val shiftFun = MLAst.Fun [
+        ("shift", [([MLAst.AsisPat "strm"],
+          MLAst.Let (
+            [MLAst.AsisDec "val pos = Lex.getPos strm",
+             MLAst.AsisDec "val (token, span, strm') = Lex.lex sourcemap strm"],
+            MLAst.AsisExp "((Category.fromToken token, pos), strm')"))])]
+      val parseLoop = MLAst.Fun [
+        ("loop" , [([MLAst.AsisPat "stacks", MLAst.AsisPat "strm"],
+          MLAst.Let (
+            [MLAst.AsisDec "val pos = Lex.getPos strm",
+             MLAst.AsisDec "val (token, span, strm') = Lex.lex sourcemap strm"],
+            MLAst.Case (MLAst.AsisExp "token",
+            [(MLAst.AsisPat "Token.EOF", MLAst.AsisExp "map (fn (st, stack) => stack) (List.filter (fn (st, _) => st = ~1) stacks)"),
+             (MLAst.AsisPat "_",
+               MLAst.Let (
+                 [MLAst.AsisDec "val next = (Category.fromToken token, pos)",
+                  MLAst.AsisDec "val stacks' = List.concat (map (fn (st, stack) => go st stack next) stacks)"],
+                  MLAst.AsisExp "loop stacks' strm'"))
+            ])))])]
       val parseFun = MLAst.Fun [
         ("parse", [([MLAst.AsisPat "sourcemap", MLAst.AsisPat "strm"],
           MLAst.Let (
-            [shiftFun, stFuns, MLAst.AsisDec "val (next, strm') = shift strm"],
-            MLAst.AsisExp "st0 [] next strm'"))])]
+            [shiftFun, parseLoop],
+            MLAst.AsisExp "loop [(0, [])] strm"))])]
     
       val parseStructure = MLAst.Struct [
         MLAst.Dec (MLAst.AsisDec "open Category"),
         MLAst.Dec (MLAst.AsisDec "exception Parse of category * Lex.pos * int"),
+        MLAst.Dec stFuns,
         MLAst.Dec parseFun
       ]
     
@@ -898,7 +885,8 @@ in
     [INT, LPAREN, RPAREN, SUB, DOLLAR] 
     [S, E0, E1]
     [
-      (SOME "ExpStmt", S,  [E0, DOLLAR]),
+      (SOME "ExpStmt", S,  [E0]),
+      (* (SOME "ExpStmt", S,  [E0, DOLLAR]), *)
       (SOME "SubExp" , E0, [E0, SUB, E1]),
       (NONE          , E0, [E1]),
       (SOME "EInt"   , E1, [INT]),
@@ -906,15 +894,41 @@ in
     S
 end
 
+fun main' () =
+  CodeGenerator.generateParser TextIO.stdOut grammar
+
 fun main () =
   let
     val args = CommandLine.arguments ()
     val (parserFileName::_) = args
-    val parserOutStream = TextIO.openOut parserFileName
+    val outs = TextIO.openOut parserFileName
   in
-    CodeGenerator.generateParser parserOutStream grammar
+    (TextIO.output (outs, "(*structure AntlrStreamPos = struct\n");
+    TextIO.output (outs, "  type sourcemap = unit\n");
+    TextIO.output (outs, "  type span = int * int\n");
+    TextIO.output (outs, "end*)\n");
+    CodeGenerator.generateParser outs grammar;
+    TextIO.output (outs, "(*structure Lex = struct\n");
+    TextIO.output (outs, "  type tok = Token.token\n");
+    TextIO.output (outs, "  type strm = tok list * int\n");
+    TextIO.output (outs, "  type pos = int\n");
+    TextIO.output (outs, "  fun lex () ([], pos) = (Token.EOF, (pos, pos), ([], pos))\n");
+    TextIO.output (outs, "    | lex () (tok::strm, pos) = (tok, (pos, pos), (strm, pos+1))\n");
+    TextIO.output (outs, "  fun getPos (strm, pos) = pos\n");
+    TextIO.output (outs, "  val posToString = Int.toString\n");
+    TextIO.output (outs, "  fun listToStrm l = (l, 0)\n");
+    TextIO.output (outs, "end\n");
+    TextIO.output (outs, "\n");
+    TextIO.output (outs, "structure MyParse = Parse(Lex)\n");
+    TextIO.output (outs, "\n");
+    TextIO.output (outs, "local\n");
+    TextIO.output (outs, "  open Token\n");
+    TextIO.output (outs, "in\n");
+    TextIO.output (outs, "  val strm = Lex.listToStrm [INT 1, SUB, LPAREN, INT 2, SUB, INT 3, RPAREN]\n");
+    TextIO.output (outs, "end*)\n");
+    ())
     before
-      TextIO.closeOut parserOutStream
+      TextIO.closeOut outs
   end
   handle Bind =>
     raise Fail ("usage: mlbnfc outputFilename")
