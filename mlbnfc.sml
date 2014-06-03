@@ -637,8 +637,8 @@ structure CodeGenerator = struct
               SOME (MLAst.Tycon (nt2dt sym))
           fun f rhs =
             case List.mapPartial symToTycon rhs of
-              [ty] => ty
-            | tys => MLAst.TupleType tys
+              [] => MLAst.Tycon "Lex.span"
+            | tys => MLAst.TupleType (MLAst.Tycon "Lex.span"::tys)
           fun consId (Grammar.Label l) = l
         in
           (* type name and constructors *)
@@ -694,7 +694,7 @@ structure CodeGenerator = struct
         else "[(" ^ stNum ^ ", (stackItem::stack))]" 
       val reduceExp =
         if reduce = [] then ""
-        else " @ st" ^ stNum ^ "r (stackItem::stack) current"
+        else " @ st" ^ stNum ^ "r (stackItem::stack) toPos"
       val exp = MLAst.AsisExp (shiftExp ^ reduceExp)
     in
       (pat, exp)
@@ -738,17 +738,17 @@ structure CodeGenerator = struct
           val svalues = rev (List.mapPartial #2 stackPat)
           val svaluesAst =
             case cons of 
-              Grammar.Label c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (map MLAst.AsisExp svalues))
+              Grammar.Label c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (MLAst.AsisExp "(pos0, pos)"::map MLAst.AsisExp svalues))
             | Grammar.Wild => MLAst.TupleExp (map MLAst.AsisExp svalues)
-          val currentAst = MLAst.TupleExp [MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst), MLAst.AsisExp "pos0"]
+          val currentAst = MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst)
         in
           ("st" ^ n ^ "r", [
               if lhs = Symbol.S' then
-                ([MLAst.AsisPat "stack", MLAst.AsisPat "current"],
+                (map MLAst.AsisPat ["stack", "pos"],
                  MLAst.AsisExp "[(~1, stack)]")
               else
-                ([MLAst.AsisPat ("(" ^ stackPatString ^ "stack)"), MLAst.AsisPat "current"],
-                MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst))
+                (map MLAst.AsisPat ["(" ^ stackPatString ^ "stack)", "pos"],
+                MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst ^ " (pos0, pos)"))
           ])
         end
       val st = 
@@ -758,9 +758,9 @@ structure CodeGenerator = struct
           val stMrules = List.map (makeStMrule automaton) nextStates @ [lastMrule]
         in
           ("st" ^ n, [
-            (map MLAst.AsisPat ["stack", "(current as (category, pos))"],
+            (map MLAst.AsisPat ["stack", "category", "(fromPos, toPos)"],
             MLAst.Let ([
-              MLAst.AsisDec ("val stackItem = (category, pos, " ^ n ^ ")")],
+              MLAst.AsisDec ("val stackItem = (category, fromPos, " ^ n ^ ")")],
               MLAst.Case (MLAst.AsisExp "category", stMrules)))
           ])
         end
@@ -805,11 +805,11 @@ structure CodeGenerator = struct
       (* go function *)
       val nonacceptingStateNumbers = List.filter (fn number => let val (_, s) = Automaton.stateOf number automaton in s <> [] end) stateNumbers
       val stateNumbersAsString = List.map Int.toString nonacceptingStateNumbers
-      val goMrules = List.map (fn n => (MLAst.AsisPat n, MLAst.AsisExp ("st" ^ n ^ " stack current"))) stateNumbersAsString
+      val goMrules = List.map (fn n => (MLAst.AsisPat n, MLAst.AsisExp ("st" ^ n ^ " stack category span"))) stateNumbersAsString
       val goCase = MLAst.Case (MLAst.AsisExp "stateNumber", goMrules @ [(MLAst.AsisPat "_", MLAst.AsisExp "[]")])
       val goFvalbind =
         ("go", [
-          (map MLAst.AsisPat ["stateNumber", "stack", "current"], goCase)
+          (map MLAst.AsisPat ["stateNumber", "stack", "category", "span"], goCase)
         ])
     
       val st = List.concat (List.map (makeStFvalbind automaton) (Automaton.stateNumbers automaton))
@@ -820,8 +820,9 @@ structure CodeGenerator = struct
         MLAst.Sig [
           MLAst.TypeSpec ["strm"],
           MLAst.TypeSpec ["pos"],
+          MLAst.TypeSpec ["span = pos * pos"], (* dirty *)
           MLAst.TypeSpec ["tok"],
-          MLAst.ValSpec [("lex", MLAst.AsisType "AntlrStreamPos.sourcemap -> strm -> tok * AntlrStreamPos.span * strm")],
+          MLAst.ValSpec [("lex", MLAst.AsisType "AntlrStreamPos.sourcemap -> strm -> tok * span * strm")],
           MLAst.ValSpec [("getPos", MLAst.AsisType "strm -> pos")]])]
 
       val parseLoop = MLAst.Fun [
@@ -833,8 +834,8 @@ structure CodeGenerator = struct
             [(MLAst.AsisPat "Token.EOF", MLAst.AsisExp "map (fn (st, stack) => stack) (List.filter (fn (st, _) => st = ~1) stacks)"),
              (MLAst.AsisPat "_",
                MLAst.Let (
-                 [MLAst.AsisDec "val next = (Category.fromToken token, pos)",
-                  MLAst.AsisDec "val stacks' = List.concat (map (fn (st, stack) => go st stack next) stacks)"],
+                 [MLAst.AsisDec "val category = Category.fromToken token",
+                  MLAst.AsisDec "val stacks' = List.concat (map (fn (st, stack) => go st stack category span) stacks)"],
                   MLAst.AsisExp "loop stacks' strm'"))
             ])))])]
       val parseFun = MLAst.Fun [
@@ -844,6 +845,8 @@ structure CodeGenerator = struct
             MLAst.AsisExp "loop [(0, [])] strm"))])]
     
       val parseStructure = MLAst.Struct [
+        astStructure,
+        categoryStructure,
         MLAst.Dec (MLAst.AsisDec "open Category"),
         MLAst.Dec (MLAst.AsisDec "exception Parse of category * Lex.pos * int"),
         MLAst.Dec stFuns,
@@ -857,8 +860,6 @@ structure CodeGenerator = struct
         parseStructure)]
     in
       MLAst.printStrdec outs 0 tokenStructure;
-      MLAst.printStrdec outs 0 astStructure;
-      MLAst.printStrdec outs 0 categoryStructure;
       MLAst.printSigdec outs 0 lexSignature;
       MLAst.printFundec outs 0 parseFunctor
     end
@@ -899,18 +900,19 @@ fun main () =
     val (parserFileName::_) = args
     val outs = TextIO.openOut parserFileName
   in
-    (TextIO.output (outs, "(*structure AntlrStreamPos = struct\n");
+    (TextIO.output (outs, "structure AntlrStreamPos = struct\n");
     TextIO.output (outs, "  type sourcemap = unit\n");
     TextIO.output (outs, "  type pos = Position.int\n");
     TextIO.output (outs, "  type span = pos * pos\n");
-    TextIO.output (outs, "end*)\n");
+    TextIO.output (outs, "end\n");
     CodeGenerator.generateParser outs grammar;
-    TextIO.output (outs, "(*structure Lex = struct\n");
+    TextIO.output (outs, "structure Lex = struct\n");
     TextIO.output (outs, "  type tok = Token.token\n");
     TextIO.output (outs, "  type strm = tok list * int\n");
     TextIO.output (outs, "  type pos = Position.int\n");
+    TextIO.output (outs, "  type span = pos * pos\n");
     TextIO.output (outs, "  fun lex () ([], pos) = (Token.EOF, (pos, pos), ([], pos))\n");
-    TextIO.output (outs, "    | lex () (tok::strm, pos) = (tok, (pos, pos), (strm, pos+1))\n");
+    TextIO.output (outs, "    | lex () (tok::strm, pos) = (tok, (pos, pos+1), (strm, pos+1))\n");
     TextIO.output (outs, "  fun getPos (strm, pos) = pos\n");
     TextIO.output (outs, "  val posToString = Int.toString\n");
     TextIO.output (outs, "  fun listToStrm l = (l, 0)\n");
@@ -922,7 +924,7 @@ fun main () =
     TextIO.output (outs, "  open Token\n");
     TextIO.output (outs, "in\n");
     TextIO.output (outs, "  val strm = Lex.listToStrm [INT 1, SUB, LPAREN, INT 2, SUB, INT 3, RPAREN]\n");
-    TextIO.output (outs, "end*)\n");
+    TextIO.output (outs, "end\n");
     ())
     before
       TextIO.closeOut outs
