@@ -822,12 +822,6 @@ structure CodeGenerator = struct
           MLAst.ValSpec [("lex", MLAst.AsisType "AntlrStreamPos.sourcemap -> strm -> tok * AntlrStreamPos.span * strm")],
           MLAst.ValSpec [("getPos", MLAst.AsisType "strm -> pos")]])]
 
-      val shiftFun = MLAst.Fun [
-        ("shift", [([MLAst.AsisPat "strm"],
-          MLAst.Let (
-            [MLAst.AsisDec "val pos = Lex.getPos strm",
-             MLAst.AsisDec "val (token, span, strm') = Lex.lex sourcemap strm"],
-            MLAst.AsisExp "((Category.fromToken token, pos), strm')"))])]
       val parseLoop = MLAst.Fun [
         ("loop" , [([MLAst.AsisPat "stacks", MLAst.AsisPat "strm"],
           MLAst.Let (
@@ -844,7 +838,7 @@ structure CodeGenerator = struct
       val parseFun = MLAst.Fun [
         ("parse", [([MLAst.AsisPat "sourcemap", MLAst.AsisPat "strm"],
           MLAst.Let (
-            [shiftFun, parseLoop],
+            [parseLoop],
             MLAst.AsisExp "loop [(0, [])] strm"))])]
     
       val parseStructure = MLAst.Struct [
@@ -905,13 +899,14 @@ fun main () =
   in
     (TextIO.output (outs, "(*structure AntlrStreamPos = struct\n");
     TextIO.output (outs, "  type sourcemap = unit\n");
-    TextIO.output (outs, "  type span = int * int\n");
+    TextIO.output (outs, "  type pos = Position.int\n");
+    TextIO.output (outs, "  type span = pos * pos\n");
     TextIO.output (outs, "end*)\n");
     CodeGenerator.generateParser outs grammar;
     TextIO.output (outs, "(*structure Lex = struct\n");
     TextIO.output (outs, "  type tok = Token.token\n");
     TextIO.output (outs, "  type strm = tok list * int\n");
-    TextIO.output (outs, "  type pos = int\n");
+    TextIO.output (outs, "  type pos = Position.int\n");
     TextIO.output (outs, "  fun lex () ([], pos) = (Token.EOF, (pos, pos), ([], pos))\n");
     TextIO.output (outs, "    | lex () (tok::strm, pos) = (tok, (pos, pos), (strm, pos+1))\n");
     TextIO.output (outs, "  fun getPos (strm, pos) = pos\n");
