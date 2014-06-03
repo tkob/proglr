@@ -133,12 +133,12 @@ structure Symbol :> SYMBOL where type symbol = int = struct
 end
 
 signature GRAMMAR = sig
-  eqtype constructor
+  datatype constructor = Label of string | Wild
   type rule
   type grammar
 
   val makeRule : constructor * Symbol.symbol * Symbol.symbol list -> rule
-  val makeGrammar : Symbol.symbol list -> Symbol.symbol list -> (string option * Symbol.symbol * Symbol.symbol list) list -> Symbol.symbol -> grammar
+  val makeGrammar : Symbol.symbol list -> Symbol.symbol list -> (constructor * Symbol.symbol * Symbol.symbol list) list -> Symbol.symbol -> grammar
   val rulesOf : grammar -> rule list
   val consOf : rule -> constructor
   val lhsOf : rule -> Symbol.symbol
@@ -155,10 +155,8 @@ signature GRAMMAR = sig
   val printGrammar : grammar -> unit
 end
 
-structure Grammar :> GRAMMAR where
-  type constructor = string option
-  = struct
-  type constructor = string option
+structure Grammar :> GRAMMAR = struct
+  datatype constructor = Label of string | Wild
   local
     open Symbol
     type lhs = symbol
@@ -190,8 +188,8 @@ structure Grammar :> GRAMMAR where
   fun attrOf symbol terms =
     #2 (valOf (List.find (fn (symbol', attr) => symbol = symbol') terms))
 
-  val isConsDefined = Option.isSome
-  fun showCons (SOME s) = s | showCons NONE = "_"
+  fun isConsDefined Wild = false | isConsDefined _ = true
+  fun showCons (Label s) = s | showCons Wild = "_"
   fun showRule (con, lhs, rhs) =
     showCons con ^ ". "
       ^ Symbol.show lhs ^ " ::= "
@@ -332,7 +330,7 @@ structure Automaton :> AUTOMATON where
 
   fun makeAutomaton grammar =
     let
-      val startRule = Grammar.makeRule (NONE , Symbol.S', [Grammar.startSymbolOf grammar])
+      val startRule = Grammar.makeRule (Grammar.Wild , Symbol.S', [Grammar.startSymbolOf grammar])
       val rules = Grammar.rulesOf grammar
       val startState = LrItem.expand [LrItem.fromRule startRule] rules
       val (startStateNumber, pool) = Intern.intern startState Intern.emptyPool
@@ -631,7 +629,7 @@ structure CodeGenerator = struct
     let
       fun makeDatatype name =
         let
-          fun ruleFor name = List.filter (fn rule => name = nt2dt (Grammar.lhsOf rule) andalso Option.isSome (Grammar.consOf rule)) rules
+          fun ruleFor name = List.filter (fn rule => name = nt2dt (Grammar.lhsOf rule) andalso Grammar.isConsDefined (Grammar.consOf rule)) rules
           fun symToTycon sym = 
             if Symbol.isTerm sym then
               fromAttr (Symbol.attrOf sym)
@@ -641,10 +639,11 @@ structure CodeGenerator = struct
             case List.mapPartial symToTycon rhs of
               [ty] => ty
             | tys => MLAst.TupleType tys
+          fun consId (Grammar.Label l) = l
         in
           (* type name and constructors *)
           (name,
-          List.map (fn rule => (valOf (Grammar.consOf rule), SOME (f (Grammar.rhsOf rule)))) (ruleFor name))
+          List.map (fn rule => (consId (Grammar.consOf rule), SOME (f (Grammar.rhsOf rule)))) (ruleFor name))
         end
     in
       (* this makes mutually recursive datatypes *)
@@ -739,8 +738,8 @@ structure CodeGenerator = struct
           val svalues = rev (List.mapPartial #2 stackPat)
           val svaluesAst =
             case cons of 
-              SOME c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (map MLAst.AsisExp svalues))
-            | NONE => MLAst.TupleExp (map MLAst.AsisExp svalues)
+              Grammar.Label c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (map MLAst.AsisExp svalues))
+            | Grammar.Wild => MLAst.TupleExp (map MLAst.AsisExp svalues)
           val currentAst = MLAst.TupleExp [MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst), MLAst.AsisExp "pos0"]
         in
           ("st" ^ n ^ "r", [
@@ -871,6 +870,7 @@ end
 
 local
   open Symbol
+  open Grammar
   val ([INT, LPAREN, RPAREN, SUB, DOLLAR], [S, E0, E1]) =
     Symbol.makeSymbols
       ([("INT", Int),
@@ -885,12 +885,12 @@ in
     [INT, LPAREN, RPAREN, SUB, DOLLAR] 
     [S, E0, E1]
     [
-      (SOME "ExpStmt", S,  [E0]),
+      (Label "ExpStmt", S,  [E0]),
       (* (SOME "ExpStmt", S,  [E0, DOLLAR]), *)
-      (SOME "SubExp" , E0, [E0, SUB, E1]),
-      (NONE          , E0, [E1]),
-      (SOME "EInt"   , E1, [INT]),
-      (NONE          , E1, [LPAREN, E0, RPAREN])]
+      (Label "SubExp" , E0, [E0, SUB, E1]),
+      (Wild           , E0, [E1]),
+      (Label "EInt"   , E1, [INT]),
+      (Wild           , E1, [LPAREN, E0, RPAREN])]
     S
 end
 
@@ -932,4 +932,5 @@ fun main () =
   end
   handle Bind =>
     raise Fail ("usage: mlbnfc outputFilename")
+
 
