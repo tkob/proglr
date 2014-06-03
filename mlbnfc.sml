@@ -694,7 +694,7 @@ structure CodeGenerator = struct
         else "[(" ^ stNum ^ ", (stackItem::stack))]" 
       val reduceExp =
         if reduce = [] then ""
-        else " @ st" ^ stNum ^ "r (stackItem::stack)"
+        else " @ st" ^ stNum ^ "r (stackItem::stack) current"
       val exp = MLAst.AsisExp (shiftExp ^ reduceExp)
     in
       (pat, exp)
@@ -744,9 +744,11 @@ structure CodeGenerator = struct
         in
           ("st" ^ n ^ "r", [
               if lhs = Symbol.S' then
-                ([MLAst.AsisPat "stack"], MLAst.AsisExp "[(~1, stack)]")
+                ([MLAst.AsisPat "stack", MLAst.AsisPat "current"],
+                 MLAst.AsisExp "[(~1, stack)]")
               else
-                ([MLAst.AsisPat ("(" ^ stackPatString ^ "stack)")], MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst))
+                ([MLAst.AsisPat ("(" ^ stackPatString ^ "stack)"), MLAst.AsisPat "current"],
+                MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst))
           ])
         end
       val st = 
@@ -756,7 +758,7 @@ structure CodeGenerator = struct
           val stMrules = List.map (makeStMrule automaton) nextStates @ [lastMrule]
         in
           ("st" ^ n, [
-            (map MLAst.AsisPat ["stack", "(category, pos)"],
+            (map MLAst.AsisPat ["stack", "(current as (category, pos))"],
             MLAst.Let ([
               MLAst.AsisDec ("val stackItem = (category, pos, " ^ n ^ ")")],
               MLAst.Case (MLAst.AsisExp "category", stMrules)))
