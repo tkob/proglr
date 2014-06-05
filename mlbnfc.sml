@@ -708,6 +708,8 @@ structure CodeGenerator = struct
           val cons = LrItem.consOf item
           val lhs = LrItem.lhsOf item
           val rhs = LrItem.rhsBeforeDot item
+          val isYpsilon = length rhs = 0
+          val fromPos = if isYpsilon then "pos" else "pos0"
           val index = ref 0
           val stackPat =
             List.foldl
@@ -717,7 +719,7 @@ structure CodeGenerator = struct
                 val sv = if holdSv sym then SOME ("sv" ^ n) else NONE
               in
                 index := !index + 1;
-                (sym, sv, "stNum" ^ n, "pos"^ n)::pats
+                (sym, sv, "stNum" ^ n, "pos" ^ n)::pats
               end)
             []
             rhs
@@ -738,7 +740,7 @@ structure CodeGenerator = struct
           val svalues = rev (List.mapPartial #2 stackPat)
           val svaluesAst =
             case cons of 
-              Grammar.Label c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (MLAst.AsisExp "(pos0, pos)"::map MLAst.AsisExp svalues))
+              Grammar.Label c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (MLAst.AsisExp ("(" ^ fromPos ^ ", pos)")::map MLAst.AsisExp svalues))
             | Grammar.Wild => MLAst.TupleExp (map MLAst.AsisExp svalues)
           val currentAst = MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst)
         in
@@ -748,7 +750,10 @@ structure CodeGenerator = struct
                  MLAst.AsisExp "[(~1, stack)]")
               else
                 (map MLAst.AsisPat ["(" ^ stackPatString ^ "stack)", "pos"],
-                MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst ^ " (pos0, pos)"))
+                if isYpsilon then
+                  MLAst.AsisExp ("go " ^ n ^ " stack " ^ MLAst.showExp currentAst ^ " (pos, pos)")
+                else
+                  MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst ^ " (pos0, pos)"))
           ])
         end
       val st = 
@@ -838,11 +843,20 @@ structure CodeGenerator = struct
                   MLAst.AsisDec "val stacks' = List.concat (map (fn (st, stack) => go st stack category span) stacks)"],
                   MLAst.AsisExp "loop stacks' strm'"))
             ])))])]
+
+      val reduceExp =
+        let
+          val (reduce, shift) = Automaton.stateOf 0 automaton
+        in
+          if reduce = [] then "" else " @ st0r [] pos"
+        end
       val parseFun = MLAst.Fun [
         ("parse", [([MLAst.AsisPat "sourcemap", MLAst.AsisPat "strm"],
           MLAst.Let (
-            [parseLoop],
-            MLAst.AsisExp "loop [(0, [])] strm"))])]
+            [MLAst.AsisDec "val pos = Lex.getPos strm",
+             MLAst.AsisDec ("val stacks = [(0, [])]" ^ reduceExp),
+             parseLoop],
+            MLAst.AsisExp "loop stacks strm"))])]
     
       val parseStructure = MLAst.Struct [
         astStructure,
@@ -865,6 +879,7 @@ structure CodeGenerator = struct
     end
 end
 
+(*
 local
   open Symbol
   open Grammar
@@ -889,6 +904,74 @@ in
       (Label "EInt"   , E1, [INT]),
       (Wild           , E1, [LPAREN, E0, RPAREN])]
     S
+end
+*)
+
+(*
+local
+  open Symbol
+  open Grammar
+  val ([INT, DIV, DOLLAR], [S, E, F, Q]) =
+    Symbol.makeSymbols
+      ([("INT", Unit),
+        ("DIV", Unit),
+        ("DOLLAR", Unit)
+       ],
+       ["S", "E", "F", "Q"])
+in
+  val grammar = Grammar.makeGrammar
+    [INT, DIV, DOLLAR]
+    [S, E, F, Q]
+    [
+      (Label "Stmt", S,  [E, DOLLAR]),
+      (Label "OpExp" , E, [E, Q, F]),
+      (Label "Exp" , E, [F]),
+      (Label "Int" , F, [INT]),
+      (Label "Mul" , Q, []),
+      (Label "Div" , Q, [DIV])]
+    S
+end
+*)
+
+local
+  open Symbol
+  val ([SEMI, DOT, IS, STRING, LBRACKET, RBRACKET, IDENT, UNDERSCORE, LPAREN, COLON, RPAREN],
+       [Grammar, Defs, Items, Def, Item, Cat, Label]) =
+    Symbol.makeSymbols
+      ([("SEMI", Unit),
+        ("DOT", Unit),
+        ("IS", Unit),
+        ("STRING", Str),
+        ("LBRACKET", Unit),
+        ("RBRACKET", Unit),
+        ("IDENT", Str),
+        ("UNDERSCORE", Unit),
+        ("LPAREN", Unit),
+        ("COLON", Unit),
+        ("RPAREN", Unit)
+       ],
+       ["Grammar", "Defs", "Items", "Def", "Item", "Cat", "Label"])
+in
+  val grammar = Grammar.makeGrammar
+    [SEMI, DOT, IS, STRING, LBRACKET, RBRACKET, IDENT, UNDERSCORE, LPAREN, COLON, RPAREN]
+    [Grammar, Defs, Items, Def, Item, Cat, Label]
+    [
+      (Grammar.Label "Grammar",   Grammar, [Defs]),
+      (Grammar.Label "NilDef" ,   Defs,    []),
+      (Grammar.Label "ConsDef",   Defs,    [Def, SEMI, Defs]),
+      (Grammar.Label "NilItem",   Items,   []),
+      (Grammar.Label "ConsItem",  Items,   [Item, Items]),
+      (Grammar.Label "Rule",      Def,     [Label, DOT, Cat, IS, Items]),
+      (Grammar.Label "Terminal",  Item,    [STRING]),
+      (Grammar.Label "NTerminal", Item,    [Cat]),
+      (Grammar.Label "ListCat",   Cat,     [LBRACKET, Cat, RBRACKET]),
+      (Grammar.Label "IdCat",     Cat,     [IDENT]),
+      (Grammar.Label "Id",        Label,   [IDENT]),
+      (Grammar.Label "Wild",      Label,   [UNDERSCORE]),
+      (Grammar.Label "ListE",     Label,   [LBRACKET, RBRACKET]),
+      (Grammar.Label "ListCons",  Label,   [LPAREN, COLON, RPAREN]),
+      (Grammar.Label "ListOne",   Label,   [LPAREN, COLON, LBRACKET, RBRACKET, RPAREN])]
+    Grammar
 end
 
 fun main' () =
