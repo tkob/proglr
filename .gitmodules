@@ -1,0 +1,3 @@
+[submodule "mlton"]
+	path = mlton
+	url = https://github.com/MLton/mlton.git
