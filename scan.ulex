@@ -1,0 +1,37 @@
+%defs (
+  open Token
+  type lex_result = Token.token
+  val eof = fn () => Token.EOF
+);
+
+%name Lexer;
+
+%let letter = [a-zA-Z\u00c0-\u00ff] & [^\u00d7\u00f7];
+%let capital = [A-Z\u00c0-\u00dd] & [^\u00d7];
+%let small = [a-z\u00de-\u00ff] & [^\u00f7];
+%let digit = [0-9];
+%let ident = letter | digit | [_\'];
+%let space = [\ \t\r\n];
+
+(*
+rule token = 
+    parse l i* {let id = lexeme lexbuf in TOK_Ident id}
+        | rsyms {let id = lexeme lexbuf in try Hashtbl.find symbol_table id with Not_found -> failwith ("internal lexer error: reserved symbol " ^ id ^ " not found in hashtable")}
+        | d+ {let i = lexeme lexbuf in TOK_Integer (int_of_string i)}
+        | d+ '.' d+ ('e' ('-')? d+)? {let f = lexeme lexbuf in TOK_Double (float_of_string f)}
+        | '\"' ((u # ['\"' '\\' '\n']) | ('\\' ('\"' | '\\' | '\'' | 'n' | 't')))* '\"' {let s = lexeme lexbuf in TOK_String (unescapeInitTail s)}
+        | [' ' '\t'] {token lexbuf}
+        | '\n' {incr_lineno lexbuf; token lexbuf}
+        | eof { TOK_EOF }
+*)
+
+{letter} {ident}* => (IDENT yytext);
+";" => (SEMI);
+"." => (DOT);
+"::=" => (AS);
+"_" => ( UNDERSCORE );
+{digit}+ => (INT (Option.valOf (Int.fromString (yytext))));
+{digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (FLOAT (Option.valOf (Real.fromString (yytext))));
+"\"" ([^\"\\\n] | ("\\" [\"\\\'nt]))* "\"" => (STRING (yytext));
+{space}+ => (continue());
+

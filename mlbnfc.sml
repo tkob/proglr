@@ -1,29 +1,31 @@
 
-(* utility function *)
+structure Parse = ParseFun(Lexer)
 
-(* list as set *)
-fun mem x xs = List.exists (fn y => y = x) xs
-fun add x xs = if mem x xs then xs else x::xs
-fun union [] ys = ys
-  | union (x::xs) ys = union xs (add x ys)
-
-fun concatWith _ [] = ""
-  | concatWith _ [s] = s
-  | concatWith sep (s::ss) = s ^ sep ^ concatWith sep ss
-
-fun dropWhile p [] = []
-  | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
-
-fun chopDigit s = 
-  let
-    val cs = rev (String.explode s)
-    val cs' = dropWhile Char.isDigit cs
-  in
-    String.implode (rev cs')
-  end
-
-fun toLower s = String.implode (List.map Char.toLower (String.explode s))
-fun toUpper s = String.implode (List.map Char.toUpper (String.explode s))
+structure Util = struct
+  (* list as set *)
+  fun mem x xs = List.exists (fn y => y = x) xs
+  fun add x xs = if mem x xs then xs else x::xs
+  fun union [] ys = ys
+    | union (x::xs) ys = union xs (add x ys)
+  
+  fun concatWith _ [] = ""
+    | concatWith _ [s] = s
+    | concatWith sep (s::ss) = s ^ sep ^ concatWith sep ss
+  
+  fun dropWhile p [] = []
+    | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
+  
+  fun chopDigit s = 
+    let
+      val cs = rev (String.explode s)
+      val cs' = dropWhile Char.isDigit cs
+    in
+      String.implode (rev cs')
+    end
+  
+  fun toLower s = String.implode (List.map Char.toLower (String.explode s))
+  fun toUpper s = String.implode (List.map Char.toUpper (String.explode s))
+end
 
 signature INTERN = sig
   type ''a pool
@@ -137,6 +139,7 @@ signature GRAMMAR = sig
   type rule
   type grammar
 
+  val fromAst : Parse.Ast.grammar -> grammar
   val makeRule : constructor * Symbol.symbol * Symbol.symbol list -> rule
   val makeGrammar : Symbol.symbol list -> Symbol.symbol list -> (constructor * Symbol.symbol * Symbol.symbol list) list -> Symbol.symbol -> grammar
   val rulesOf : grammar -> rule list
@@ -169,6 +172,37 @@ structure Grammar :> GRAMMAR = struct
     type grammar = terms * nonterms * rule list * start
   end
 
+  local
+    open Parse.Ast
+    fun tokensOfGrammar (Grammar (_, defs)) tokens =
+      tokensOfDefs defs tokens
+    and tokensOfDefs (NilDef _) tokens = tokens
+      | tokensOfDefs (ConsDef (_, def, defs)) tokens =
+          tokensOfDef def (tokensOfDefs defs tokens)
+    and tokensOfItems (NilItem _) tokens = tokens
+      | tokensOfItems (ConsItem (_, item, items)) tokens =
+          tokensOfItem item (tokensOfItems items tokens)
+    and tokensOfDef (Rule (_, label, cat, items)) tokens =
+          tokensOfCat cat (tokensOfItems items tokens)
+    and tokensOfItem (Terminal (_, ident)) tokens = ident::tokens
+      | tokensOfItem (NTerminal (_, cat)) tokens = 
+          tokensOfCat cat tokens
+    and tokensOfCat (IdCat (_, ident)) tokens = ident::tokens
+      | tokensOfCat (ListCat (_, cat)) tokens =
+          let
+            val _ = ()
+          in
+            tokens
+          end
+  in
+    fun fromAst ast =
+      let 
+        val tokens = tokensOfGrammar ast
+      in
+        ([], [], [], Symbol.S')
+      end
+  end
+
   fun makeRule (rule as (constructor, lhs, rhs)) =
     if Symbol.isTerm lhs then raise Fail "non-terminal cannot be lhs of a rule"
     else rule
@@ -193,7 +227,7 @@ structure Grammar :> GRAMMAR = struct
   fun showRule (con, lhs, rhs) =
     showCons con ^ ". "
       ^ Symbol.show lhs ^ " ::= "
-      ^ concatWith " " (List.map Symbol.show rhs) ^ ";"
+      ^ Util.concatWith " " (List.map Symbol.show rhs) ^ ";"
   fun printGrammar (_, _, rules, _) =
     let
       fun printRule rule = print (showRule rule ^ "\n")
@@ -234,7 +268,7 @@ structure LrItem :> LRITEM = struct
       (* 1st = unexpanded items, 2nd = expanded items *)
       fun loop [] expanded = expanded
         | loop (lrItem::lrItems) expanded =
-            if mem lrItem expanded then loop lrItems expanded
+            if Util.mem lrItem expanded then loop lrItems expanded
             else
               case lrItem of
                 (* if the dot is not in fromt of a non-terminal *)
@@ -278,7 +312,7 @@ structure LrItem :> LRITEM = struct
       fun loop [] symbols = symbols
         | loop ((_, _, _, [])::lrItems) symbols = loop lrItems symbols
         | loop ((_, _, _, nextSymbol::_)::lrItems) symbols =
-            loop lrItems (add nextSymbol symbols)
+            loop lrItems (Util.add nextSymbol symbols)
     in
       loop lrItems []
     end
@@ -292,9 +326,9 @@ structure LrItem :> LRITEM = struct
 
   fun show (_, lhs, rhs1, rhs2) =
     Symbol.show lhs ^ " -> "
-      ^ concatWith " " (List.map Symbol.show rhs1)
+      ^ Util.concatWith " " (List.map Symbol.show rhs1)
       ^ " . "
-      ^ concatWith " " (List.map Symbol.show rhs2)
+      ^ Util.concatWith " " (List.map Symbol.show rhs2)
 end
 
 structure State = struct
@@ -366,7 +400,7 @@ structure Automaton :> AUTOMATON where
 
   fun printStates states =
     let
-      fun showState state = concatWith " | " (List.map LrItem.show state)
+      fun showState state = Util.concatWith " | " (List.map LrItem.show state)
       fun printState (n, state) = print (Int.toString n ^ ": " ^ showState state ^ "\n")
     in
       List.app printState (Intern.toList states)
@@ -624,7 +658,7 @@ structure CodeGenerator = struct
     in
       MLAst.Fun [("show", patExps)]
     end
-  fun nt2dt nonterm = toLower (chopDigit (Symbol.show nonterm))
+  fun nt2dt nonterm = Util.toLower (Util.chopDigit (Symbol.show nonterm))
   fun makeAstDatatype datatypeNames rules terms =
     let
       fun makeDatatype name =
@@ -792,7 +826,7 @@ structure CodeGenerator = struct
            MLAst.Dec tokenShowFun])]
     
       (* Aat *)
-      val astDatatypeNames = List.foldr (fn (nonterm, datatypeNames) => add (nt2dt nonterm) datatypeNames) [] nonterms
+      val astDatatypeNames = List.foldr (fn (nonterm, datatypeNames) => Util.add (nt2dt nonterm) datatypeNames) [] nonterms
       val astDatatype = makeAstDatatype astDatatypeNames rules tokens
       val astStructure =
         MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
@@ -932,7 +966,7 @@ in
     S
 end
 *)
-
+(*
 local
   open Symbol
   val ([SEMI, DOT, IS, STRING, LBRACKET, RBRACKET, IDENT, UNDERSCORE, LPAREN, COLON, RPAREN],
@@ -973,46 +1007,21 @@ in
       (Grammar.Label "ListOne",   Label,   [LPAREN, COLON, LBRACKET, RBRACKET, RPAREN])]
     Grammar
 end
-
-fun main' () =
-  CodeGenerator.generateParser TextIO.stdOut grammar
+*)
 
 fun main () =
   let
     val args = CommandLine.arguments ()
-    val (parserFileName::_) = args
-    val outs = TextIO.openOut parserFileName
+    val ins = TextIO.stdIn
+    val outs = TextIO.stdOut
+    val strm = Lexer.streamifyInstream ins
+    val sourcemap = AntlrStreamPos.mkSourcemap ()
   in
-    (TextIO.output (outs, "structure AntlrStreamPos = struct\n");
-    TextIO.output (outs, "  type sourcemap = unit\n");
-    TextIO.output (outs, "  type pos = Position.int\n");
-    TextIO.output (outs, "  type span = pos * pos\n");
-    TextIO.output (outs, "end\n");
-    CodeGenerator.generateParser outs grammar;
-    TextIO.output (outs, "structure Lex = struct\n");
-    TextIO.output (outs, "  type tok = Token.token\n");
-    TextIO.output (outs, "  type strm = tok list * int\n");
-    TextIO.output (outs, "  type pos = Position.int\n");
-    TextIO.output (outs, "  type span = pos * pos\n");
-    TextIO.output (outs, "  fun lex () ([], pos) = (Token.EOF, (pos, pos), ([], pos))\n");
-    TextIO.output (outs, "    | lex () (tok::strm, pos) = (tok, (pos, pos+1), (strm, pos+1))\n");
-    TextIO.output (outs, "  fun getPos (strm, pos) = pos\n");
-    TextIO.output (outs, "  val posToString = Int.toString\n");
-    TextIO.output (outs, "  fun listToStrm l = (l, 0)\n");
-    TextIO.output (outs, "end\n");
-    TextIO.output (outs, "\n");
-    TextIO.output (outs, "structure MyParse = Parse(Lex)\n");
-    TextIO.output (outs, "\n");
-    TextIO.output (outs, "local\n");
-    TextIO.output (outs, "  open Token\n");
-    TextIO.output (outs, "in\n");
-    TextIO.output (outs, "  val strm = Lex.listToStrm [INT 1, SUB, LPAREN, INT 2, SUB, INT 3, RPAREN]\n");
-    TextIO.output (outs, "end\n");
-    ())
+    Parse.parse sourcemap strm
+    (* CodeGenerator.generateParser outs grammar *)
     before
-      TextIO.closeOut outs
+      (TextIO.closeOut outs; TextIO.closeIn ins)
   end
-  handle Bind =>
-    raise Fail ("usage: mlbnfc outputFilename")
-
-
+structure Main = struct
+  val main = main
+end

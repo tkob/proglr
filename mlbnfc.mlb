@@ -1,3 +1,8 @@
 $(SML_LIB)/basis/basis.mlb
+$(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
+mlton/lib/mllpt-lib/ml-lpt/lib/mllpt-lib.mlb
+
+parse.sml
+scan.ulex.sml
 mlbnfc.sml
 boot.sml
