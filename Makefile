@@ -1,9 +1,9 @@
-gen.sml: mlbnfc
-	./mlbnfc gen.sml        
-mlbnfc: mlbnfc.sml boot.sml 
+gen.sml: mlglr
+	./mlglr gen.sml        
+mlglr: mlglr.sml boot.sml 
 	mlton \
-	-output 'mlbnfc' \
+	-output 'mlglr' \
 	-default-ann 'allowFFI true' \
-	mlbnfc.mlb 
+	mlglr.mlb 
 clean:
-	rm -f mlbnfc
+	rm -f mlglr

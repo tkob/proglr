@@ -4,5 +4,5 @@ mlton/lib/mllpt-lib/ml-lpt/lib/mllpt-lib.mlb
 
 parse.sml
 scan.ulex.sml
-mlbnfc.sml
+mlglr.sml
 boot.sml

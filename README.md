@@ -1,4 +1,4 @@
-mlbnfc
-======
+mlglr
+=====
 
-ML-BNFC: BNF Converter for Standard ML
+ML-GLR: GLR Parser Generator for Standard ML
