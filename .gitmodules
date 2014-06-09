@@ -1,3 +1,6 @@
 [submodule "mlton"]
 	path = mlton
 	url = https://github.com/MLton/mlton.git
+[submodule "cmlib"]
+	path = cmlib
+	url = https://github.com/standardml/cmlib.git
