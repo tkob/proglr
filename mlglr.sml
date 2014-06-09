@@ -8,10 +8,6 @@ structure Util = struct
   fun union [] ys = ys
     | union (x::xs) ys = union xs (add x ys)
   
-  fun concatWith _ [] = ""
-    | concatWith _ [s] = s
-    | concatWith sep (s::ss) = s ^ sep ^ concatWith sep ss
-  
   fun dropWhile p [] = []
     | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
   
@@ -197,7 +193,7 @@ structure Grammar :> GRAMMAR = struct
   in
     fun fromAst ast =
       let 
-        val tokens = tokensOfGrammar ast
+        val nonterms = tokensOfGrammar ast
       in
         ([], [], [], Symbol.S')
       end
@@ -227,7 +223,7 @@ structure Grammar :> GRAMMAR = struct
   fun showRule (con, lhs, rhs) =
     showCons con ^ ". "
       ^ Symbol.show lhs ^ " ::= "
-      ^ Util.concatWith " " (List.map Symbol.show rhs) ^ ";"
+      ^ String.concatWith " " (List.map Symbol.show rhs) ^ ";"
   fun printGrammar (_, _, rules, _) =
     let
       fun printRule rule = print (showRule rule ^ "\n")
@@ -326,9 +322,9 @@ structure LrItem :> LRITEM = struct
 
   fun show (_, lhs, rhs1, rhs2) =
     Symbol.show lhs ^ " -> "
-      ^ Util.concatWith " " (List.map Symbol.show rhs1)
+      ^ String.concatWith " " (List.map Symbol.show rhs1)
       ^ " . "
-      ^ Util.concatWith " " (List.map Symbol.show rhs2)
+      ^ String.concatWith " " (List.map Symbol.show rhs2)
 end
 
 structure State = struct
@@ -400,7 +396,7 @@ structure Automaton :> AUTOMATON where
 
   fun printStates states =
     let
-      fun showState state = Util.concatWith " | " (List.map LrItem.show state)
+      fun showState state = String.concatWith " | " (List.map LrItem.show state)
       fun printState (n, state) = print (Int.toString n ^ ": " ^ showState state ^ "\n")
     in
       List.app printState (Intern.toList states)
@@ -1009,19 +1005,19 @@ in
 end
 *)
 
-fun main () =
-  let
-    val args = CommandLine.arguments ()
-    val ins = TextIO.stdIn
-    val outs = TextIO.stdOut
-    val strm = Lexer.streamifyInstream ins
-    val sourcemap = AntlrStreamPos.mkSourcemap ()
-  in
-    Parse.parse sourcemap strm
-    (* CodeGenerator.generateParser outs grammar *)
-    before
-      (TextIO.closeOut outs; TextIO.closeIn ins)
-  end
 structure Main = struct
-  val main = main
+  fun main ins inFileName outs =
+    let
+      val strm = Lexer.streamifyInstream ins
+      val sourcemap =
+        case inFileName of 
+          NONE => AntlrStreamPos.mkSourcemap ()
+        | SOME name => AntlrStreamPos.mkSourcemap' name
+    in
+      Parse.parse sourcemap strm
+      (* CodeGenerator.generateParser outs grammar *)
+    end
 end
+
+fun main () =
+  Main.main TextIO.stdIn NONE TextIO.stdOut
