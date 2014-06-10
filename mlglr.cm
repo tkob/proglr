@@ -3,11 +3,22 @@ structure Lexer
 structure Parse
 structure AntlrStreamPos
 structure Main
+structure Symbol
+structure Grammar
+structure LrItem
+structure Automaton
 is
 
 $/basis.cm
 $/smlnj-lib.cm
 $/ml-lpt-lib.cm
+
+cmlib/hash-inc.sig
+cmlib/hash-inc.sml
+cmlib/idict.sig
+cmlib/hashable.sig
+cmlib/hash-table.sig
+cmlib/hash-table.sml
 
 parse.sml
 scan.ulex.sml

@@ -77,11 +77,10 @@ end
 signature SYMBOL = sig
   eqtype symbol
   datatype attr_type = Unit | Int | Str | Char
-  datatype kind = TERM of attr_type | NONTERM
   val isTerm : symbol -> bool
   val attrOf : symbol -> attr_type
   val show : symbol -> string
-  val makeSymbols : (string * attr_type) list * string list -> (symbol list * symbol list)
+  (*  val makeSymbols : (string * attr_type) list * string list -> (symbol list * symbol list) *)
   val S' : symbol
   val EOF : symbol
 end
@@ -152,6 +151,10 @@ signature GRAMMAR = sig
 
   val showRule : rule -> string
   val printGrammar : grammar -> unit
+
+  type kind
+  type symbol
+  val nonterms : Parse.Ast.grammar -> symbol list
 end
 
 structure Grammar :> GRAMMAR = struct
@@ -168,35 +171,59 @@ structure Grammar :> GRAMMAR = struct
     type grammar = terms * nonterms * rule list * start
   end
 
+  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm
+
+  structure Handle :> HASHABLE where type t = string * int = struct
+    (* handle for grammatical symbol.
+       T = ("T", 0), [T] = ("T", 1), [[T]] = ("T", 2), ... *)
+    type t = string * int
+    fun eq (a, b) = a = b
+    fun hash (ident, level) =
+      let
+        val charToWord = Word.fromInt o Char.ord
+        fun hash (ch, h) = JenkinsHash.hashInc h (charToWord ch)
+      in
+        List.foldl hash (Word.fromInt level) (String.explode ident)
+      end
+  end
+  structure SymbolHashTable = HashTable(structure Key = Handle)
+
+  type symbol = Handle.t * kind
+  fun isTerm (_, Nonterm) = false
+    | isTerm (_, _) = true
+  fun show ((ident, 0), _) = ident
+    | show ((ident, level), kind) = "[" ^ show ((ident, level - 1), kind) ^ "]"
+
   local
     open Parse.Ast
-    fun tokensOfGrammar (Grammar (_, defs)) tokens =
-      tokensOfDefs defs tokens
-    and tokensOfDefs (NilDef _) tokens = tokens
-      | tokensOfDefs (ConsDef (_, def, defs)) tokens =
-          tokensOfDef def (tokensOfDefs defs tokens)
-    and tokensOfItems (NilItem _) tokens = tokens
-      | tokensOfItems (ConsItem (_, item, items)) tokens =
-          tokensOfItem item (tokensOfItems items tokens)
-    and tokensOfDef (Rule (_, label, cat, items)) tokens =
-          tokensOfCat cat (tokensOfItems items tokens)
-    and tokensOfItem (Terminal (_, ident)) tokens = ident::tokens
-      | tokensOfItem (NTerminal (_, cat)) tokens = 
-          tokensOfCat cat tokens
-    and tokensOfCat (IdCat (_, ident)) tokens = ident::tokens
-      | tokensOfCat (ListCat (_, cat)) tokens =
-          let
-            val _ = ()
-          in
-            tokens
-          end
   in
-    fun fromAst ast =
-      let 
-        val nonterms = tokensOfGrammar ast
+    fun nonterms ast =
+      let
+        val table = SymbolHashTable.table 256
+        fun nontermsOfGrammar (Grammar (_, defs)) tokens =
+          nontermsOfDefs defs tokens
+        and nontermsOfDefs (NilDef _) tokens = tokens
+          | nontermsOfDefs (ConsDef (_, def, defs)) tokens =
+              nontermsOfDef def (nontermsOfDefs defs tokens)
+        and nontermsOfDef (Rule (_, label, cat, items)) tokens =
+              nontermsOfCat cat tokens
+        and nontermsOfCat cat tokens = 
+              let
+                val hand = toHandle cat
+                fun symbol () = (hand, Nonterm)
+              in
+                (SymbolHashTable.lookupOrInsert table hand symbol)::tokens
+              end
+        and toHandle (IdCat (_, ident)) = (ident, 0)
+          | toHandle (ListCat (_, cat)) =
+              let val (ident, level) = toHandle cat in
+                (ident, level + 1)
+              end
       in
-        ([], [], [], Symbol.S')
+        nontermsOfGrammar ast []
       end
+    fun fromAst ast =
+        ([], [], [], Symbol.S')
   end
 
   fun makeRule (rule as (constructor, lhs, rhs)) =
