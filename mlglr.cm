@@ -3,7 +3,6 @@ structure Lexer
 structure Parse
 structure AntlrStreamPos
 structure Main
-structure Symbol
 structure Grammar
 structure LrItem
 structure Automaton
