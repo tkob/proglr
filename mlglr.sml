@@ -73,78 +73,27 @@ structure Intern :> INTERN = struct
   fun toList pool = pool
 end
 
-(* grammatical symbols: terminal and non-terminal *)
-signature SYMBOL = sig
-  eqtype symbol
-  datatype attr_type = Unit | Int | Str | Char
-  val isTerm : symbol -> bool
-  val attrOf : symbol -> attr_type
-  val show : symbol -> string
-  (*  val makeSymbols : (string * attr_type) list * string list -> (symbol list * symbol list) *)
-  val S' : symbol
-  val EOF : symbol
-end
-
-structure Symbol :> SYMBOL where type symbol = int = struct
-  type symbol = int
-  type name = string
-  datatype attr_type = Unit | Int | Str | Char
-  datatype kind = TERM of attr_type | NONTERM
-
-  val S' = 0
-  val EOF = 1
-  val symbols : (string * kind) vector ref = ref (Vector.fromList [])
-  fun makeSymbols (terms, nonterms) =
-    let
-      val numTerms = length terms
-      val numNonterms = length nonterms
-      val terms' = map (fn (name, attrType) => (name, TERM attrType)) terms
-      val nonterms' = map (fn name => (name, NONTERM)) nonterms
-      val symbols' = [("S'", NONTERM), ("EOF", TERM Unit)] @ terms' @ nonterms'
-    in
-      (symbols := (Vector.fromList symbols');
-      (List.tabulate (numTerms, (fn n => 2 + n)),
-       List.tabulate (numNonterms, (fn n => 2 + numTerms + n ))))
-    end
-
-  fun lookup symbol =
-    SOME (Vector.sub (!symbols, symbol))
-    handle Subscript => NONE
-
-  fun show symbol =
-    case lookup symbol of
-      SOME (name, _) => name
-    | NONE => raise Fail "symbol not found"
-
-  fun isTerm symbol =
-    case lookup symbol of
-      SOME (_, TERM _) => true
-    | SOME (_, NONTERM) => false
-    | NONE => raise Fail "symbol not found"
-
-  fun attrOf symbol =
-    case lookup symbol of
-      SOME (_, TERM attrType) => attrType
-    | SOME (_, NONTERM) => raise Fail ("symbol " ^ show symbol ^ " is nonterm")
-    | NONE => raise Fail "symbol not found"
-end
-
 signature GRAMMAR = sig
-  datatype constructor = Label of string | Wild
+  datatype constructor = Id of string | Wild  | ListE | ListCons | ListOne
   type rule
   type grammar
 
+  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm | RealTerm
+  eqtype symbol
+
   val fromAst : Parse.Ast.grammar -> grammar
-  val makeRule : constructor * Symbol.symbol * Symbol.symbol list -> rule
-  val makeGrammar : Symbol.symbol list -> Symbol.symbol list -> (constructor * Symbol.symbol * Symbol.symbol list) list -> Symbol.symbol -> grammar
+  val makeRule : constructor * symbol * symbol list -> rule
+
   val rulesOf : grammar -> rule list
+
   val consOf : rule -> constructor
-  val lhsOf : rule -> Symbol.symbol
-  val rhsOf : rule -> Symbol.symbol list
-  val startSymbolOf : grammar -> Symbol.symbol
-  val termsOf : grammar -> Symbol.symbol list
-  val nontermsOf : grammar -> Symbol.symbol list
-  val attrOf : Symbol.symbol -> (Symbol.symbol * Symbol.attr_type) list -> Symbol.attr_type
+  val lhsOf : rule -> symbol
+  val rhsOf : rule -> symbol list
+
+  val startSymbolOf : grammar -> symbol
+
+  val termsOf : grammar -> symbol list
+  val nontermsOf : grammar -> symbol list
 
   val isConsDefined : constructor -> bool
   val showCons : constructor -> string
@@ -152,27 +101,15 @@ signature GRAMMAR = sig
   val showRule : rule -> string
   val printGrammar : grammar -> unit
 
-  type kind
-  type symbol
-  val nonterms : Parse.Ast.grammar -> symbol list
+  val showSymbol : symbol -> string
+  val isTerm : symbol -> bool
+  val kindOf : symbol -> kind
+  val identOfSymbol : symbol -> string
+  val S' : symbol
+  val EOF : symbol
 end
 
 structure Grammar :> GRAMMAR = struct
-  datatype constructor = Label of string | Wild
-  local
-    open Symbol
-    type lhs = symbol
-    type rhs = symbol list
-    type terms = symbol list
-    type nonterms = symbol list
-    type start = symbol
-  in
-    type rule = constructor * lhs * rhs
-    type grammar = terms * nonterms * rule list * start
-  end
-
-  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm
-
   structure Handle :> HASHABLE where type t = string * int = struct
     (* handle for grammatical symbol.
        T = ("T", 0), [T] = ("T", 1), [[T]] = ("T", 2), ... *)
@@ -180,78 +117,179 @@ structure Grammar :> GRAMMAR = struct
     fun eq (a, b) = a = b
     fun hash (ident, level) =
       let
-        val charToWord = Word.fromInt o Char.ord
-        fun hash (ch, h) = JenkinsHash.hashInc h (charToWord ch)
+        val word8ToWord = Word.fromLarge o Word8.toLarge
+        fun hash (ch, h) = JenkinsHash.hashInc h (word8ToWord ch)
       in
-        List.foldl hash (Word.fromInt level) (String.explode ident)
+        Word8Vector.foldl hash (Word.fromInt level) (Byte.stringToBytes ident)
       end
   end
   structure SymbolHashTable = HashTable(structure Key = Handle)
 
+  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm | RealTerm
   type symbol = Handle.t * kind
+
+  datatype constructor = Id of string | Wild  | ListE | ListCons | ListOne
+  type lhs = symbol
+  type rhs = symbol list
+  type rule = constructor * lhs * rhs
+  type grammar = {
+         terms : symbol list,
+         nonterms : symbol list,
+         rules : rule list,
+         start : symbol}
+
   fun isTerm (_, Nonterm) = false
     | isTerm (_, _) = true
-  fun show ((ident, 0), _) = ident
-    | show ((ident, level), kind) = "[" ^ show ((ident, level - 1), kind) ^ "]"
-
-  local
-    open Parse.Ast
-  in
-    fun nonterms ast =
-      let
-        val table = SymbolHashTable.table 256
-        fun nontermsOfGrammar (Grammar (_, defs)) tokens =
-          nontermsOfDefs defs tokens
-        and nontermsOfDefs (NilDef _) tokens = tokens
-          | nontermsOfDefs (ConsDef (_, def, defs)) tokens =
-              nontermsOfDef def (nontermsOfDefs defs tokens)
-        and nontermsOfDef (Rule (_, label, cat, items)) tokens =
-              nontermsOfCat cat tokens
-        and nontermsOfCat cat tokens = 
-              let
-                val hand = toHandle cat
-                fun symbol () = (hand, Nonterm)
-              in
-                (SymbolHashTable.lookupOrInsert table hand symbol)::tokens
-              end
-        and toHandle (IdCat (_, ident)) = (ident, 0)
-          | toHandle (ListCat (_, cat)) =
-              let val (ident, level) = toHandle cat in
-                (ident, level + 1)
-              end
-      in
-        nontermsOfGrammar ast []
-      end
-    fun fromAst ast =
-        ([], [], [], Symbol.S')
-  end
+  fun showSymbol ((ident, 0), _) = ident
+    | showSymbol ((ident, level), kind) = "[" ^ showSymbol ((ident, level - 1), kind) ^ "]"
+  fun kindOf (_, kind) = kind
+  fun identOfSymbol ((ident, _), _) = ident
+  val S' = (("S'", 0), Nonterm)
+  val EOF = (("EOF", 0), UnitTerm)
 
   fun makeRule (rule as (constructor, lhs, rhs)) =
-    if Symbol.isTerm lhs then raise Fail "non-terminal cannot be lhs of a rule"
+    if isTerm lhs then raise Fail "non-terminal cannot be lhs of a rule"
     else rule
+
+  fun rulesOf ({rules,...} : grammar) = rules
+
+  fun consOf (constructor, _, _) = constructor
+  fun lhsOf (_, lhs, _) = lhs
+  fun rhsOf (_, _, rhs) = rhs
+
+  fun fromAst ast =
+    let
+      val table = SymbolHashTable.table 256
+      fun catToHandle (Parse.Ast.IdCat (_, ident)) = (ident, 0)
+        | catToHandle (Parse.Ast.ListCat (_, cat)) =
+            let val (ident, level) = catToHandle cat in
+              (ident, level + 1)
+            end
+      fun itemToHandle (Parse.Ast.Terminal (_, str)) = (str, ~1)
+        | itemToHandle (Parse.Ast.NTerminal (_, cat)) = catToHandle cat
+      fun labelToCons (Parse.Ast.Id (_, ident)) = Id ident
+        | labelToCons (Parse.Ast.Wild _) = Wild
+        | labelToCons (Parse.Ast.ListE _) = ListE
+        | labelToCons (Parse.Ast.ListCons _) = ListCons
+        | labelToCons (Parse.Ast.ListOne _) = ListOne
+      val terms =
+        [(("SEMI", 0), UnitTerm),
+         (("DOT", 0), UnitTerm),
+         (("AS", 0), UnitTerm),
+         (("LBRACKET", 0), UnitTerm),
+         (("RBRACKET", 0), UnitTerm),
+         (("UNDERSCORE", 0), UnitTerm),
+         (("LPAREN", 0), UnitTerm),
+         (("COLON", 0), UnitTerm),
+         (("RPAREN", 0), UnitTerm),
+         (("TOKEN", 0), UnitTerm),
+         (("OF", 0), UnitTerm),
+         (("STRING", 0), StrTerm),
+         (("IDENT", 0), StrTerm),
+         (("INT", 0), IntTerm),
+         (("FLOAT", 0), RealTerm)]
+      val _ =
+        let
+          fun add (symbol as (hand, kind)) =
+            let
+              fun symf () = symbol
+            in
+              ignore (SymbolHashTable.lookupOrInsert table hand symf)
+            end
+        in
+          List.app add terms
+        end
+      val literals = 
+        [("SEMI", ";"), ("DOT", "."), ("AS", "::="),
+         ("LBRACKET", "["), ("RBRACKET", "]"),
+         ("TOKEN", "token"), ("OF", "of"),
+         ("UNDERSCORE", "_"), ("LPAREN", "("),
+         ("COLON", ":"), ("RPAREN", ")")]
+      val _ =
+        let
+          fun add (sym, literal) =
+            let
+              fun symf () = ((sym, 0), UnitTerm)
+            in
+              ignore (SymbolHashTable.lookupOrInsert table (literal, ~1) symf)
+            end
+        in
+          List.app add literals
+        end
+      val nonterms =
+        let
+          fun nontermsOfGrammar (Parse.Ast.Grammar (_, defs)) syms =
+                nontermsOfDefs defs syms
+          and nontermsOfDefs (Parse.Ast.NilDef _) syms = []
+            | nontermsOfDefs (Parse.Ast.ConsDef (_, def, defs)) syms =
+                nontermsOfDef def (nontermsOfDefs defs syms)
+          and nontermsOfDef (Parse.Ast.Rule (_, label, cat, items)) syms =
+                nontermsOfCat cat syms
+          and nontermsOfCat cat syms = 
+                let
+                  val hand = catToHandle cat
+                  fun symf () = (hand, Nonterm)
+                  val (sym, present) = SymbolHashTable.lookupOrInsert' table hand symf
+                in
+                  if present then syms else sym::syms
+                end
+        in
+          nontermsOfGrammar ast []
+        end
+      val rules =
+        let
+          fun rulesOfGrammar (Parse.Ast.Grammar (_, defs)) rules = rulesOfDefs defs rules
+          and rulesOfDefs (Parse.Ast.NilDef _) rules = []
+            | rulesOfDefs (Parse.Ast.ConsDef (_, def, defs)) rules =
+                rulesOfDef def (rulesOfDefs defs rules)
+          and rulesOfDef (Parse.Ast.Rule (_, label, cat, items)) rules =
+                let
+                  fun toList (Parse.Ast.NilItem _) = []
+                    | toList (Parse.Ast.ConsItem (_, item, items)) = item::(toList items)
+                  val items' = toList items
+                  val cons = labelToCons label
+                  val lhs = SymbolHashTable.lookup table (catToHandle cat) handle Absent => raise Fail "b"
+                  fun l i =
+                    let
+                      val h = itemToHandle i
+                    in
+                      SymbolHashTable.lookup table h
+                      handle Absent => raise Fail (#1 h)
+                    end
+                  val rhs = map l items'
+                in
+                  (cons, lhs, rhs)::rules
+                end
+        in
+          rulesOfGrammar ast []
+        end
+      val start = lhsOf (hd rules)
+    in
+      {terms = terms, nonterms = nonterms, rules = rules, start = start}
+    end
+
   fun makeGrammar terms nonterms rules startSymbol =
     let
       val rules = List.map makeRule rules
     in
       (terms, nonterms, rules, startSymbol)
     end
-  fun rulesOf (_, _, rules, _) = rules
-  fun consOf (constructor, _, _) = constructor
-  fun lhsOf (_, lhs, _) = lhs
-  fun rhsOf (_, _, rhs) = rhs
-  fun startSymbolOf (_, _, _, startSymbol) = startSymbol
-  fun termsOf (terms, _, _, _) = terms
-  fun nontermsOf (_, nonterms, _, _) = nonterms
-  fun attrOf symbol terms =
-    #2 (valOf (List.find (fn (symbol', attr) => symbol = symbol') terms))
+
+  fun startSymbolOf ({start,...} : grammar) = start
+  fun termsOf ({terms,...} : grammar) = terms
+  fun nontermsOf ({nonterms,...} : grammar) = nonterms
 
   fun isConsDefined Wild = false | isConsDefined _ = true
-  fun showCons (Label s) = s | showCons Wild = "_"
+  fun showCons (Id s) = s
+    | showCons Wild = "_"
+    | showCons ListE = "[]"
+    | showCons ListCons = "(:)"
+    | showCons ListOne = "(:[])"
   fun showRule (con, lhs, rhs) =
     showCons con ^ ". "
-      ^ Symbol.show lhs ^ " ::= "
-      ^ String.concatWith " " (List.map Symbol.show rhs) ^ ";"
-  fun printGrammar (_, _, rules, _) =
+      ^ showSymbol lhs ^ " ::= "
+      ^ String.concatWith " " (List.map showSymbol rhs) ^ ";"
+  fun printGrammar ({rules,...} : grammar) =
     let
       fun printRule rule = print (showRule rule ^ "\n")
     in
@@ -264,23 +302,23 @@ signature LRITEM = sig
   type items = item list
   val fromRule : Grammar.rule -> item
   val expand : items -> Grammar.rule list -> items
-  val moveOver : items -> Symbol.symbol -> Grammar.rule list -> items
-  val nextSymbols : items -> Symbol.symbol list
+  val moveOver : items -> Grammar.symbol -> Grammar.rule list -> items
+  val nextSymbols : items -> Grammar.symbol list
   val partition :items -> items * items
   val consOf : item -> Grammar.constructor
-  val lhsOf : item -> Symbol.symbol
-  val rhsBeforeDot : item -> Symbol.symbol list
+  val lhsOf : item -> Grammar.symbol
+  val rhsBeforeDot : item -> Grammar.symbol list
   val show : item -> string
 end
 
 structure LrItem :> LRITEM = struct
   local
-    open Symbol
+    open Grammar
     type lhs = symbol
     type rhs_before_dot = symbol list
     type rhs_after_dot = symbol list
   in
-    type item = Grammar.constructor * lhs * rhs_before_dot * rhs_after_dot
+    type item = constructor * lhs * rhs_before_dot * rhs_after_dot
     type items = item list
   end
 
@@ -297,7 +335,7 @@ structure LrItem :> LRITEM = struct
                 (* if the dot is not in fromt of a non-terminal *)
                 (_, _, _, [])     => loop lrItems (lrItem::expanded)
               | (_, _, _, sym::_) =>
-                  if Symbol.isTerm sym then
+                  if Grammar.isTerm sym then
                     (* if the dot is not in fromt of a non-terminal *)
                     loop lrItems (lrItem::expanded)
                   else
@@ -348,10 +386,10 @@ structure LrItem :> LRITEM = struct
   fun rhsBeforeDot (_, _, rhs, []) = rhs
 
   fun show (_, lhs, rhs1, rhs2) =
-    Symbol.show lhs ^ " -> "
-      ^ String.concatWith " " (List.map Symbol.show rhs1)
+    Grammar.showSymbol lhs ^ " -> "
+      ^ String.concatWith " " (List.map Grammar.showSymbol rhs1)
       ^ " . "
-      ^ String.concatWith " " (List.map Symbol.show rhs2)
+      ^ String.concatWith " " (List.map Grammar.showSymbol rhs2)
 end
 
 structure State = struct
@@ -374,12 +412,12 @@ end
 
 structure Automaton :> AUTOMATON where
   type state = State.state
-  and type alphabet = Symbol.symbol
+  and type alphabet = Grammar.symbol
   = struct
   open State
   type state = State.state
   type state_number = int
-  type alphabet = Symbol.symbol
+  type alphabet = Grammar.symbol
   type transition = state_number * alphabet * state_number
   type automaton = LrItem.items Intern.pool * transition list
 
@@ -387,7 +425,7 @@ structure Automaton :> AUTOMATON where
 
   fun makeAutomaton grammar =
     let
-      val startRule = Grammar.makeRule (Grammar.Wild , Symbol.S', [Grammar.startSymbolOf grammar])
+      val startRule = Grammar.makeRule (Grammar.Wild , Grammar.S', [Grammar.startSymbolOf grammar])
       val rules = Grammar.rulesOf grammar
       val startState = LrItem.expand [LrItem.fromRule startRule] rules
       val (startStateNumber, pool) = Intern.intern startState Intern.emptyPool
@@ -432,7 +470,7 @@ structure Automaton :> AUTOMATON where
   fun printTransitions transitions =
     let
       fun printTransition (s1, symbol, s2) =
-        print (Int.toString s1 ^ " -> " ^ Symbol.show symbol ^ " -> " ^ Int.toString s2 ^ "\n")
+        print (Int.toString s1 ^ " -> " ^ Grammar.showSymbol symbol ^ " -> " ^ Int.toString s2 ^ "\n")
     in
       List.app printTransition transitions
     end
@@ -646,57 +684,65 @@ end
 
 structure CodeGenerator = struct
 
-  fun fromAttr Symbol.Unit = NONE
-    | fromAttr Symbol.Int = SOME (MLAst.Tycon "int")
-    | fromAttr Symbol.Str = SOME (MLAst.Tycon "string")
-    | fromAttr Symbol.Char = SOME (MLAst.Tycon "char")
+  fun kindToTycon Grammar.UnitTerm = NONE
+    | kindToTycon Grammar.IntTerm  = SOME (MLAst.Tycon "int")
+    | kindToTycon Grammar.StrTerm  = SOME (MLAst.Tycon "string")
+    | kindToTycon Grammar.CharTerm = SOME (MLAst.Tycon "char")
+    | kindToTycon Grammar.RealTerm = SOME (MLAst.Tycon "real")
+    (* | kindToTycon Grammar.Nonterm  = raise Fail "nonterm has no attribute" *)
 
+  (* string -> Grammar.symbol list -> MLAst.dec *)
+  (* example output: datatype token = EOF | ... *)
   fun makeTokenDatatype typeName tokens =
     let
-      fun f symbol = (Symbol.show symbol, fromAttr (Symbol.attrOf symbol))
+      fun f symbol = (Grammar.identOfSymbol symbol, kindToTycon (Grammar.kindOf symbol))
       fun makeTycons tokens = List.map f tokens
     in
       MLAst.Datatype [(typeName, makeTycons tokens)]
     end
+
+  (* symbol list -> MLAst.dec *)
+  (* example outpu: fun show (EOF) = "EOF" | ... *)
   fun makeShowFun tokens =
     let
       fun makePat symbol = 
-        if Symbol.isTerm symbol then
-          if Symbol.attrOf symbol = Symbol.Unit then 
-            MLAst.AsisPat ("(" ^ Symbol.show symbol ^ ")")
-          else
-            MLAst.AsisPat ("(" ^ Symbol.show symbol ^ " a)")
-        else
-          MLAst.AsisPat ("(" ^ Symbol.show symbol ^ " _)")
+        case Grammar.kindOf symbol of
+          Grammar.Nonterm =>  MLAst.AsisPat ("(" ^ Grammar.identOfSymbol symbol ^ " _)")
+        | Grammar.UnitTerm => MLAst.AsisPat ("(" ^ Grammar.identOfSymbol symbol ^ ")")
+        | _ =>                MLAst.AsisPat ("(" ^ Grammar.identOfSymbol symbol ^ " a)")
       fun makeBody symbol =
-        if Symbol.isTerm symbol then
-          case Symbol.attrOf symbol of
-            Symbol.Unit => MLAst.AsisExp ("\"" ^ Symbol.show symbol ^ "\"")
-          | Symbol.Int  => MLAst.AsisExp ("\"" ^ Symbol.show symbol ^ "(\" ^ Int.toString a ^ \")\"")
-          | Symbol.Str  => MLAst.AsisExp ("\"" ^ Symbol.show symbol ^ "(\" ^ a ^ \")\"")
-          | Symbol.Char => MLAst.AsisExp ("\"" ^ Symbol.show symbol ^ "(\" ^ Char.toString a ^ \")\"")
-        else
-          MLAst.AsisExp ("\"" ^ Symbol.show symbol ^ "\"")
+        case Grammar.kindOf symbol of
+          Grammar.UnitTerm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "\"")
+        | Grammar.IntTerm  => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ Int.toString a ^ \")\"")
+        | Grammar.StrTerm  => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ a ^ \")\"")
+        | Grammar.CharTerm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ Char.toString a ^ \")\"")
+        | Grammar.RealTerm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ Real.toString a ^ \")\"")
+        | Grammar.Nonterm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "\"")
       val patExps = List.map (fn token => ([makePat token], makeBody token)) tokens
     in
       MLAst.Fun [("show", patExps)]
     end
-  fun nt2dt nonterm = Util.toLower (Util.chopDigit (Symbol.show nonterm))
+
+  fun nt2dt nonterm = Util.toLower (Util.chopDigit (Grammar.identOfSymbol nonterm))
+
+  (* example output:
+       datatype grammar =
+         Grammar of Lex.span * defs
+       and defs = ... *)
   fun makeAstDatatype datatypeNames rules terms =
     let
       fun makeDatatype name =
         let
           fun ruleFor name = List.filter (fn rule => name = nt2dt (Grammar.lhsOf rule) andalso Grammar.isConsDefined (Grammar.consOf rule)) rules
           fun symToTycon sym = 
-            if Symbol.isTerm sym then
-              fromAttr (Symbol.attrOf sym)
-            else
-              SOME (MLAst.Tycon (nt2dt sym))
+            case Grammar.kindOf sym of
+              Grammar.Nonterm => SOME (MLAst.Tycon (nt2dt sym))
+            | kind => kindToTycon kind
           fun f rhs =
             case List.mapPartial symToTycon rhs of
               [] => MLAst.Tycon "Lex.span"
             | tys => MLAst.TupleType (MLAst.Tycon "Lex.span"::tys)
-          fun consId (Grammar.Label l) = l
+          fun consId (Grammar.Id l) = l
         in
           (* type name and constructors *)
           (name,
@@ -706,44 +752,56 @@ structure CodeGenerator = struct
       (* this makes mutually recursive datatypes *)
       MLAst.Datatype (List.map makeDatatype datatypeNames)
     end
+
+  (* example output:
+       datatype category =
+         EOF
+       | Grammar of Ast.grammar
+       ... *)
   fun makeCategoryDatatype typeName symbols =
     let
       fun f symbol =
-        let val name = Symbol.show symbol in
-          if Symbol.isTerm symbol then
-            (name, fromAttr (Symbol.attrOf symbol))
-          else
-            (name, SOME (MLAst.Tycon ("Ast." ^ nt2dt symbol)))
+        let val name = Grammar.identOfSymbol symbol in
+          case Grammar.kindOf symbol of
+            Grammar.Nonterm => (name, SOME (MLAst.Tycon ("Ast." ^ nt2dt symbol)))
+          | kind => (name, kindToTycon kind)
         end
       fun makeTycons tokens = List.map f tokens
     in
       MLAst.Datatype [(typeName, makeTycons symbols)]
     end
+
+  (* example output:
+       fun fromToken (Token.EOF) = EOF
+         | fromToken ... *)
   fun makeFromTokenFun tokens =
     let
       fun makePat symbol =
-        if Symbol.attrOf symbol = Symbol.Unit then
-          MLAst.AsisPat ("(Token." ^ Symbol.show symbol ^ ")")
-        else
-          MLAst.AsisPat ("(Token." ^ Symbol.show symbol ^ " a)")
+        case Grammar.kindOf symbol of
+          Grammar.Nonterm  => raise Fail ""
+        | Grammar.UnitTerm => MLAst.AsisPat ("(Token." ^ Grammar.identOfSymbol symbol ^ ")")
+        | _                => MLAst.AsisPat ("(Token." ^ Grammar.identOfSymbol symbol ^ " a)")
       fun makeBody symbol =
-        if Symbol.attrOf symbol = Symbol.Unit then
-          MLAst.AsisExp (Symbol.show symbol)
-        else
-          MLAst.AsisExp (Symbol.show symbol ^ " a")
+        case Grammar.kindOf symbol of
+          Grammar.Nonterm  => raise Fail ""
+        | Grammar.UnitTerm => MLAst.AsisExp (Grammar.identOfSymbol symbol)
+        | _                => MLAst.AsisExp (Grammar.identOfSymbol symbol ^ " a")
       val patExps = List.map (fn token => ([makePat token], makeBody token)) tokens
     in
       MLAst.Fun [("fromToken", patExps)]
     end
 
   fun holdSv sym =
-    not (Symbol.isTerm sym) orelse Symbol.attrOf sym <> Symbol.Unit
+    case Grammar.kindOf sym of
+      Grammar.UnitTerm => false
+    | _ => true
+
   (* st functions *)
   fun makeStMrule automaton (symbol, next) =
     let
       val pat = if holdSv symbol
-                then MLAst.AsisPat (Symbol.show symbol ^ " _")
-                else MLAst.AsisPat (Symbol.show symbol)
+                then MLAst.AsisPat (Grammar.identOfSymbol symbol ^ " _")
+                else MLAst.AsisPat (Grammar.identOfSymbol symbol)
       val (reduce, shift) = Automaton.stateOf next automaton
       val stNum = Int.toString next
       val shiftExp =
@@ -756,6 +814,7 @@ structure CodeGenerator = struct
     in
       (pat, exp)
     end
+
   fun makeStFvalbind automaton stateNumber =
     let
       val n = Int.toString stateNumber
@@ -784,7 +843,7 @@ structure CodeGenerator = struct
             let
               fun toString (sym, sv, stNum, pos) =
                 "("
-                ^ Symbol.show sym
+                ^ Grammar.identOfSymbol sym
                 ^ (case sv of SOME sv => " " ^ sv | NONE => "")
                 ^ ", "
                 ^ pos
@@ -797,12 +856,12 @@ structure CodeGenerator = struct
           val svalues = rev (List.mapPartial #2 stackPat)
           val svaluesAst =
             case cons of 
-              Grammar.Label c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (MLAst.AsisExp ("(" ^ fromPos ^ ", pos)")::map MLAst.AsisExp svalues))
+              Grammar.Id c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (MLAst.AsisExp ("(" ^ fromPos ^ ", pos)")::map MLAst.AsisExp svalues))
             | Grammar.Wild => MLAst.TupleExp (map MLAst.AsisExp svalues)
-          val currentAst = MLAst.AppExp (MLAst.AsisExp (Symbol.show lhs), svaluesAst)
+          val currentAst = MLAst.AppExp (MLAst.AsisExp (Grammar.identOfSymbol lhs), svaluesAst)
         in
           ("st" ^ n ^ "r", [
-              if lhs = Symbol.S' then
+              if lhs = Grammar.S' then
                 (map MLAst.AsisPat ["stack", "pos"],
                  MLAst.AsisExp "[(~1, stack)]")
               else
@@ -832,7 +891,7 @@ structure CodeGenerator = struct
 
   fun generateParser outs grammar =
     let
-      val tokens = Symbol.EOF :: Grammar.termsOf grammar
+      val tokens = Grammar.EOF :: Grammar.termsOf grammar
       val nonterms = Grammar.nontermsOf grammar
       val rules = Grammar.rulesOf grammar
       val categories = tokens @ nonterms
@@ -1040,9 +1099,10 @@ structure Main = struct
         case inFileName of 
           NONE => AntlrStreamPos.mkSourcemap ()
         | SOME name => AntlrStreamPos.mkSourcemap' name
+      val [[(Parse.Category.Grammar ast, _, _)]] = Parse.parse sourcemap strm
+      val grammar = Grammar.fromAst ast
     in
-      Parse.parse sourcemap strm
-      (* CodeGenerator.generateParser outs grammar *)
+      CodeGenerator.generateParser outs grammar
     end
 end
 
