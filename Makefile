@@ -1,5 +1,3 @@
-gen.sml: mlglr
-	./mlglr gen.sml        
 mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml 
 	mlton \
 	-output 'mlglr' \
