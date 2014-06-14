@@ -218,7 +218,7 @@ structure Grammar :> GRAMMAR = struct
         end
       val nonterms =
         let
-          fun nontermsOfGrammar (Parse.Ast.Grammar (_, defs)) syms =
+          fun nontermsOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) syms =
                 nontermsOfDefs defs syms
           and nontermsOfDefs (Parse.Ast.NilDef _) syms = []
             | nontermsOfDefs (Parse.Ast.ConsDef (_, def, defs)) syms =
@@ -238,7 +238,7 @@ structure Grammar :> GRAMMAR = struct
         end
       val rules =
         let
-          fun rulesOfGrammar (Parse.Ast.Grammar (_, defs)) rules = rulesOfDefs defs rules
+          fun rulesOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) rules = rulesOfDefs defs rules
           and rulesOfDefs (Parse.Ast.NilDef _) rules = []
             | rulesOfDefs (Parse.Ast.ConsDef (_, def, defs)) rules =
                 rulesOfDef def (rulesOfDefs defs rules)
@@ -984,7 +984,7 @@ structure CodeGenerator = struct
       ]
     
       val parseFunctor = MLAst.Functor [(
-        "Parse",
+        "ParseFun",
         "Lex",
         MLAst.SigId ("Lex", [("tok", MLAst.Tycon "Token.token")]),
         parseStructure)]
