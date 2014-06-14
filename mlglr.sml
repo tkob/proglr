@@ -4,9 +4,9 @@ structure Parse = ParseFun(Lexer)
 structure Util = struct
   (* list as set *)
   fun mem x xs = List.exists (fn y => y = x) xs
-  fun add x xs = if mem x xs then xs else x::xs
+  fun add (x, xs) = if mem x xs then xs else x::xs
   fun union [] ys = ys
-    | union (x::xs) ys = union xs (add x ys)
+    | union (x::xs) ys = union xs (add (x, ys))
   
   fun dropWhile p [] = []
     | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
@@ -374,7 +374,7 @@ structure LrItem :> LRITEM = struct
       fun loop [] symbols = symbols
         | loop ((_, _, _, [])::lrItems) symbols = loop lrItems symbols
         | loop ((_, _, _, nextSymbol::_)::lrItems) symbols =
-            loop lrItems (Util.add nextSymbol symbols)
+            loop lrItems (Util.add (nextSymbol, symbols))
     in
       loop lrItems []
     end
@@ -726,6 +726,7 @@ structure CodeGenerator = struct
 
   fun nt2dt nonterm = Util.toLower (Util.chopDigit (Grammar.identOfSymbol nonterm))
 
+  (* makeAstDatatype : string list -> Grammar.rule list -> Grammar.symbol list -> MLAst.dec *)
   (* example output:
        datatype grammar =
          Grammar of Lex.span * defs
@@ -909,7 +910,7 @@ structure CodeGenerator = struct
            MLAst.Dec tokenShowFun])]
     
       (* Aat *)
-      val astDatatypeNames = List.foldr (fn (nonterm, datatypeNames) => Util.add (nt2dt nonterm) datatypeNames) [] nonterms
+      val astDatatypeNames = List.foldr Util.add [] (map nt2dt nonterms)
       val astDatatype = makeAstDatatype astDatatypeNames rules tokens
       val astStructure =
         MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
