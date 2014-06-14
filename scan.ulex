@@ -17,11 +17,18 @@
 %let quot = ["];
 %let backslash = [\\];
 
-<INITIAL> {letter} {ident}* => (IDENT yytext);
 <INITIAL> ";" => (SEMI);
 <INITIAL> "." => (DOT);
 <INITIAL> "::=" => (AS);
-<INITIAL> "_" => ( UNDERSCORE );
+<INITIAL> "[" => (LBRACKET);
+<INITIAL> "]" => (RBRACKET);
+<INITIAL> "_" => (UNDERSCORE);
+<INITIAL> "(" => (LPAREN);
+<INITIAL> ")" => (RPAREN);
+<INITIAL> ":" => (COLON);
+<INITIAL> token => (TOKEN);
+<INITIAL> of => (OF);
+<INITIAL> {letter} {ident}* => (IDENT yytext);
 <INITIAL> {digit}+ => (INT (Option.valOf (Int.fromString (yytext))));
 <INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (FLOAT (Option.valOf (Real.fromString (yytext))));
 <INITIAL> {quot} => (YYBEGIN IN_STRING; continue ());
