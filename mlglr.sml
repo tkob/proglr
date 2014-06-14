@@ -104,6 +104,7 @@ signature GRAMMAR = sig
   val showSymbol : symbol -> string
   val isTerm : symbol -> bool
   val kindOf : symbol -> kind
+  val levelOf : symbol -> int
   val identOfSymbol : symbol -> string
   val S' : symbol
   val EOF : symbol
@@ -143,6 +144,7 @@ structure Grammar :> GRAMMAR = struct
   fun showSymbol ((ident, 0), _) = ident
     | showSymbol ((ident, level), kind) = "[" ^ showSymbol ((ident, level - 1), kind) ^ "]"
   fun kindOf (_, kind) = kind
+  fun levelOf ((_, level), _) = level
   fun identOfSymbol ((ident, _), _) = ident
   val S' = (("S'", 0), Nonterm)
   val EOF = (("EOF", 0), UnitTerm)
@@ -726,12 +728,12 @@ structure CodeGenerator = struct
 
   fun nt2dt nonterm = Util.toLower (Util.chopDigit (Grammar.identOfSymbol nonterm))
 
-  (* makeAstDatatype : string list -> Grammar.rule list -> Grammar.symbol list -> MLAst.dec *)
+  (* makeAstDatatype : string list -> Grammar.rule list -> MLAst.dec *)
   (* example output:
        datatype grammar =
          Grammar of Lex.span * defs
        and defs = ... *)
-  fun makeAstDatatype datatypeNames rules terms =
+  fun makeAstDatatype datatypeNames rules =
     let
       fun makeDatatype name =
         let
@@ -911,7 +913,7 @@ structure CodeGenerator = struct
     
       (* Aat *)
       val astDatatypeNames = List.foldr Util.add [] (map nt2dt nonterms)
-      val astDatatype = makeAstDatatype astDatatypeNames rules tokens
+      val astDatatype = makeAstDatatype astDatatypeNames rules
       val astStructure =
         MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
     
