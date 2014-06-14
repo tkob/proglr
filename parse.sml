@@ -47,7 +47,7 @@ functor ParseFun(Lex : Lex where type tok = Token.token) = struct
       Grammar of Lex.span * tokens * defs
     and tokens =
       NilToken of Lex.span
-    | ConsTOken of Lex.span * token * tokens
+    | ConsToken of Lex.span * token * tokens
     and token =
       Keyword of Lex.span * string * string
     | AttrToken of Lex.span * string * string
@@ -192,7 +192,7 @@ functor ParseFun(Lex : Lex where type tok = Token.token) = struct
   and st34r ((IDENT sv1, pos1, stNum1)::(TOKEN, pos0, stNum0)::stack) pos =
       go stNum0 stack (Token (Ast.NoAttrToken ((pos0, pos), sv1))) (pos0, pos)
   and st33r ((Tokens sv2, pos2, stNum2)::(SEMI, pos1, stNum1)::(Token sv0, pos0, stNum0)::stack) pos =
-      go stNum0 stack (Tokens (Ast.ConsTOken ((pos0, pos), sv0, sv2))) (pos0, pos)
+      go stNum0 stack (Tokens (Ast.ConsToken ((pos0, pos), sv0, sv2))) (pos0, pos)
   and st32 stack category (fromPos, toPos) =
       let
         val stackItem = (category, fromPos, 32)
