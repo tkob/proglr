@@ -24,8 +24,8 @@
 <INITIAL> "_" => ( UNDERSCORE );
 <INITIAL> {digit}+ => (INT (Option.valOf (Int.fromString (yytext))));
 <INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (FLOAT (Option.valOf (Real.fromString (yytext))));
-<INITIAL> {quot} => (print "enter string\n"; YYBEGIN IN_STRING; continue ());
+<INITIAL> {quot} => (YYBEGIN IN_STRING; continue ());
 <INITIAL> {space}+ => (continue ());
 
-<IN_STRING> ([^"]|{backslash}{quot})* => (print (unescape yytext ^ "\n"); STRING (unescape yytext)); 
-<IN_STRING> {quot} => (print "end string\n"; YYBEGIN INITIAL; continue ());
+<IN_STRING> ([^"]|{backslash}{quot})* => (STRING (unescape yytext)); 
+<IN_STRING> {quot} => (YYBEGIN INITIAL; continue ());

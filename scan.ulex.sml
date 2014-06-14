@@ -132,16 +132,15 @@ fun yyAction6 (strm, lastMatch : yymatch) = let
         yystrm := strm;  FLOAT (Option.valOf (Real.fromString (yytext)))
       end
 fun yyAction7 (strm, lastMatch : yymatch) = (yystrm := strm;
-       print "enter string\n"; YYBEGIN IN_STRING; continue ())
+       YYBEGIN IN_STRING; continue ())
 fun yyAction8 (strm, lastMatch : yymatch) = (yystrm := strm;  continue ())
 fun yyAction9 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
-        yystrm := strm;
-         print (unescape yytext ^ "\n"); STRING (unescape yytext)
+        yystrm := strm;  STRING (unescape yytext)
       end
 fun yyAction10 (strm, lastMatch : yymatch) = (yystrm := strm;
-       print "end string\n"; YYBEGIN INITIAL; continue ())
+       YYBEGIN INITIAL; continue ())
 fun yyQ12 (strm, lastMatch : yymatch) = (case (yygetc(strm))
        of NONE => yyAction4(strm, yyNO_MATCH)
         | SOME(inp, strm') => yyAction4(strm, yyNO_MATCH)
