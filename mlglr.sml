@@ -173,52 +173,51 @@ structure Grammar :> GRAMMAR = struct
         | labelToCons (Parse.Ast.ListCons _) = ListCons
         | labelToCons (Parse.Ast.ListOne _) = ListOne
       val terms =
-        [(("SEMI", 0), UnitTerm),
-         (("DOT", 0), UnitTerm),
-         (("AS", 0), UnitTerm),
-         (("LBRACKET", 0), UnitTerm),
-         (("RBRACKET", 0), UnitTerm),
-         (("UNDERSCORE", 0), UnitTerm),
-         (("LPAREN", 0), UnitTerm),
-         (("COLON", 0), UnitTerm),
-         (("RPAREN", 0), UnitTerm),
-         (("TOKEN", 0), UnitTerm),
-         (("OF", 0), UnitTerm),
-         (("STRING", 0), StrTerm),
-         (("IDENT", 0), StrTerm),
-         (("INT", 0), IntTerm),
-         (("FLOAT", 0), RealTerm)]
-      val _ =
         let
-          fun add (symbol as (hand, kind)) =
-            let
-              fun symf () = symbol
-            in
-              ignore (SymbolHashTable.lookupOrInsert table hand symf)
-            end
+          fun termsOfGrammar (Parse.Ast.Grammar (_, tokens, _)) terms =
+                termsOfTokens tokens terms
+          and termsOfTokens (Parse.Ast.NilToken _) terms = []
+            | termsOfTokens (Parse.Ast.ConsToken (_, token, tokens)) terms =
+                termsOfToken token (termsOfTokens tokens terms)
+          and termsOfToken (Parse.Ast.Keyword (_, name, literal)) terms =
+                let
+                  val hand = (name, 0)
+                  val symbol = (hand, UnitTerm)
+                  val (term, present) = SymbolHashTable.lookupOrInsert' table hand (fn () => symbol)
+                  val literalHand = (literal, ~1)
+                in
+                  (SymbolHashTable.lookupOrInsert table literalHand (fn () => symbol);
+                  if present then terms else term::terms)
+                end
+            | termsOfToken (Parse.Ast.AttrToken (_, name, attr)) terms =
+                let
+                  val hand = (name, 0)
+                  val kind =
+                    case attr of
+                      "string" => StrTerm
+                    | "int"    => IntTerm
+                    | "char"   => CharTerm
+                    | "real"   => RealTerm
+                    | t        => raise Fail ("unknown type: " ^ t)
+                  val symbol = (hand, kind)
+                  val (term, present) = SymbolHashTable.lookupOrInsert' table hand (fn () => symbol)
+                in
+                  if present then terms else term::terms
+                end
+            | termsOfToken (Parse.Ast.NoAttrToken (_, name)) terms =
+                let
+                  val hand = (name, 0)
+                  val symbol = (hand, UnitTerm)
+                  val (term, present) = SymbolHashTable.lookupOrInsert' table hand (fn () => symbol)
+                in
+                  if present then terms else term::terms
+                end
         in
-          List.app add terms
-        end
-      val literals = 
-        [("SEMI", ";"), ("DOT", "."), ("AS", "::="),
-         ("LBRACKET", "["), ("RBRACKET", "]"),
-         ("TOKEN", "token"), ("OF", "of"),
-         ("UNDERSCORE", "_"), ("LPAREN", "("),
-         ("COLON", ":"), ("RPAREN", ")")]
-      val _ =
-        let
-          fun add (sym, literal) =
-            let
-              fun symf () = ((sym, 0), UnitTerm)
-            in
-              ignore (SymbolHashTable.lookupOrInsert table (literal, ~1) symf)
-            end
-        in
-          List.app add literals
+          termsOfGrammar ast []
         end
       val nonterms =
         let
-          fun nontermsOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) syms =
+          fun nontermsOfGrammar (Parse.Ast.Grammar (_, tokens, defs)) syms =
                 nontermsOfDefs defs syms
           and nontermsOfDefs (Parse.Ast.NilDef _) syms = []
             | nontermsOfDefs (Parse.Ast.ConsDef (_, def, defs)) syms =
@@ -236,6 +235,8 @@ structure Grammar :> GRAMMAR = struct
         in
           nontermsOfGrammar ast []
         end
+      (* val entries = SymbolHashTable.toList table
+      val _ = List.app (fn ((name, level),v) => print (name ^ ":" ^ Int.toString level ^ "\n")) entries *)
       val rules =
         let
           fun rulesOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) rules = rulesOfDefs defs rules
@@ -1099,6 +1100,8 @@ structure Main = struct
         case inFileName of 
           NONE => AntlrStreamPos.mkSourcemap ()
         | SOME name => AntlrStreamPos.mkSourcemap' name
+(*    in
+      Parse.parse sourcemap strm *)
       val [[(Parse.Category.Grammar ast, _, _)]] = Parse.parse sourcemap strm
       val grammar = Grammar.fromAst ast
     in
