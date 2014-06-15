@@ -1,0 +1,29 @@
+mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml 
+	./polybuild.tcl \
+		smlnj-lib/Util/utf8-sig.sml \
+		smlnj-lib/Util/utf8.sml \
+		ml-lpt/lib/stream-pos.sml \
+		ml-lpt/lib/antlr-lexer-sig.sml \
+		ml-lpt/lib/antlr-tokens-sig.sml \
+		ml-lpt/lib/ebnf.sml \
+		ml-lpt/lib/repair.sml \
+		ml-lpt/lib/ulex-buffer.sml \
+		ml-lpt/lib/wrapped-strm.sml \
+		cmlib/hash-inc.sig \
+		cmlib/hash-inc.sml \
+		cmlib/idict.sig \
+		cmlib/hashable.sig \
+		cmlib/hash-table.sig \
+		cmlib/hash-table.sml \
+		parse.sml \
+		scan.ulex.sml \
+		mlglr.sml
+	polyc -o mlglr a.o
+
+scan.ulex.sml: scan.ulex
+	ml-ulex scan.ulex
+
+clean:
+	rm -f mlglr
+	rm -f *.o
+
