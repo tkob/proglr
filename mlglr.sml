@@ -270,13 +270,6 @@ structure Grammar :> GRAMMAR = struct
       {terms = terms, nonterms = nonterms, rules = rules, start = start}
     end
 
-  fun makeGrammar terms nonterms rules startSymbol =
-    let
-      val rules = List.map makeRule rules
-    in
-      (terms, nonterms, rules, startSymbol)
-    end
-
   fun startSymbolOf ({start,...} : grammar) = start
   fun termsOf ({terms,...} : grammar) = terms
   fun nontermsOf ({nonterms,...} : grammar) = nonterms
