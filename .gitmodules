@@ -1,3 +1,0 @@
-[submodule "cmlib"]
-	path = cmlib
-	url = git://github.com/tkob/cmlib.git
