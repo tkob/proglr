@@ -917,6 +917,7 @@ structure CodeGenerator = struct
       val tokens = Grammar.EOF :: Grammar.termsOf grammar
       val nonterms = Grammar.nontermsOf grammar
       val rules = Grammar.rulesOf grammar
+      val startSymbol = Grammar.startSymbolOf grammar
       val categories = tokens @ nonterms
       val automaton = Automaton.makeAutomaton grammar
       val numbersAndStates = Automaton.numbersAndStates automaton
@@ -975,7 +976,12 @@ structure CodeGenerator = struct
             [MLAst.AsisDec "val pos = Lex.getPos strm",
              MLAst.AsisDec "val (token, span, strm') = Lex.lex sourcemap strm"],
             MLAst.Case (MLAst.AsisExp "token",
-            [(MLAst.AsisPat "Token.EOF", MLAst.AsisExp "map (fn (st, stack) => stack) (List.filter (fn (st, _) => st = ~1) stacks)"),
+            [(MLAst.AsisPat "Token.EOF",
+               MLAst.Let (
+                 [MLAst.AsisDec "val completeStacks = List.filter (fn (st, _) => st = ~1) stacks",
+                  MLAst.AsisDec "val topCategories = map (fn (st, stack) => hd stack) completeStacks",
+                  MLAst.AsisDec ("fun toAst (" ^ symToCategory startSymbol ^ " sv, _, _) = SOME sv | toAst _ = NONE")],
+                  MLAst.AsisExp "List.mapPartial toAst topCategories")),
              (MLAst.AsisPat "_",
                MLAst.Let (
                  [MLAst.AsisDec "val category = Category.fromToken token",
@@ -1028,8 +1034,8 @@ structure Main = struct
         | SOME name => AntlrStreamPos.mkSourcemap' name
 (*    in
       Parse.parse sourcemap strm *)
-      val [[(Parse.Category.Grammar ast, _, _)]] = Parse.parse sourcemap strm
-      val grammar = Grammar.fromAst ast
+      val ast = Parse.parse sourcemap strm
+      val grammar = Grammar.fromAst (hd ast)
     in
       CodeGenerator.generateParser outs grammar
     end

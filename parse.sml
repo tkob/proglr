@@ -416,7 +416,14 @@ functor ParseFun(Lex : Lex where type tok = Token.token) = struct
               val (token, span, strm') = Lex.lex sourcemap strm
             in
               case token of
-                Token.EOF => map (fn (st, stack) => stack) (List.filter (fn (st, _) => st = ~1) stacks)
+                Token.EOF =>
+                let
+                  val completeStacks = List.filter (fn (st, _) => st = ~1) stacks
+                  val topCategories = map (fn (st, stack) => hd stack) completeStacks
+                  fun toAst (Grammar sv, _, _) = SOME sv | toAst _ = NONE
+                in
+                  List.mapPartial toAst topCategories
+                end
               | _ =>
                 let
                   val category = Category.fromToken token
