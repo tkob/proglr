@@ -1,0 +1,45 @@
+token Semi ";";
+token Dot ".";
+token As "::=";
+token LBracket "[";
+token RBracket "]";
+token Underscore "_";
+token LParen "(";
+token RParen ")";
+token Colon ":";
+token TokenKw "token";
+token OfKw "of";
+token Integer of int;
+token Double of real;
+token Char of char;
+token String of string;
+token Ident of string;
+
+Grammar . Grammar ::= [Token] [Def] ;
+
+[]  . [Token] ::= ;
+(:) . [Token] ::= Token ";" [Token] ;
+
+Keyword     . Token ::= "token" Ident String ;
+AttrToken   . Token ::= "token" Ident "of" Ident ;
+NoAttrToken . Token ::= "token" Ident ;
+
+[]  . [Def] ::= ;
+(:) . [Def] ::= Def ";" [Def] ;
+
+[]  . [Item] ::= ;
+(:) . [Item] ::= Item [Item] ;
+
+Rule . Def ::= Label "." Cat "::=" [Item] ;
+
+Terminal  . Item ::= String ;
+NTerminal . Item ::= Cat ;
+
+ListCat  . Cat ::= "[" Cat "]" ;
+IdCat    . Cat ::= Ident ;
+
+Id       . Label ::= Ident ; 
+Wild     . Label ::= "_" ; 
+ListE    . Label ::= "[" "]" ;
+ListCons . Label ::= "(" ":" ")" ; 
+ListOne  . Label ::= "(" ":" "[" "]" ")" ;
