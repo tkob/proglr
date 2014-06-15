@@ -95,9 +95,7 @@ signature GRAMMAR = sig
   val termsOf : grammar -> symbol list
   val nontermsOf : grammar -> symbol list
 
-  val isConsDefined : constructor -> bool
   val showCons : constructor -> string
-
   val showRule : rule -> string
   val printGrammar : grammar -> unit
 
@@ -106,6 +104,7 @@ signature GRAMMAR = sig
   val kindOf : symbol -> kind
   val levelOf : symbol -> int
   val identOfSymbol : symbol -> string
+
   val S' : symbol
   val EOF : symbol
 end
@@ -282,7 +281,6 @@ structure Grammar :> GRAMMAR = struct
   fun termsOf ({terms,...} : grammar) = terms
   fun nontermsOf ({nonterms,...} : grammar) = nonterms
 
-  fun isConsDefined Wild = false | isConsDefined _ = true
   fun showCons (Id s) = s
     | showCons Wild = "_"
     | showCons ListE = "[]"
@@ -686,19 +684,38 @@ structure MLAst = struct
 end
 
 structure CodeGenerator = struct
+  fun nt2dt nonterm =
+    Util.toLower (Util.chopDigit (Grammar.identOfSymbol nonterm))
 
-  fun kindToTycon Grammar.UnitTerm = NONE
-    | kindToTycon Grammar.IntTerm  = SOME (MLAst.Tycon "int")
-    | kindToTycon Grammar.StrTerm  = SOME (MLAst.Tycon "string")
-    | kindToTycon Grammar.CharTerm = SOME (MLAst.Tycon "char")
-    | kindToTycon Grammar.RealTerm = SOME (MLAst.Tycon "real")
-    (* | kindToTycon Grammar.Nonterm  = raise Fail "nonterm has no attribute" *)
+  (* Terms: appropriate atomic types
+     Nonerms: T => T, [T] => T list ...  *)
+  fun symToTycon prefix sym = 
+    let
+      fun suffix 0 = ""
+        | suffix n = suffix (n - 1) ^ " list"
+    in
+      case Grammar.kindOf sym of
+        Grammar.UnitTerm => NONE
+      | Grammar.IntTerm  => SOME (MLAst.Tycon "int")
+      | Grammar.StrTerm  => SOME (MLAst.Tycon "string")
+      | Grammar.CharTerm => SOME (MLAst.Tycon "char")
+      | Grammar.RealTerm => SOME (MLAst.Tycon "real")
+      | Grammar.Nonterm  => SOME (MLAst.Tycon (prefix ^ (nt2dt sym) ^ suffix (Grammar.levelOf sym)))
+    end
+
+  fun symToCategory sym =
+    let
+      fun addPrimes s 0 = s
+        | addPrimes s n = addPrimes s (n - 1) ^ "'"
+    in
+      addPrimes (Grammar.identOfSymbol sym) (Grammar.levelOf sym)
+    end
 
   (* string -> Grammar.symbol list -> MLAst.dec *)
   (* example output: datatype token = EOF | ... *)
   fun makeTokenDatatype typeName tokens =
     let
-      fun f symbol = (Grammar.identOfSymbol symbol, kindToTycon (Grammar.kindOf symbol))
+      fun f symbol = (Grammar.identOfSymbol symbol, (symToTycon "") symbol)
       fun makeTycons tokens = List.map f tokens
     in
       MLAst.Datatype [(typeName, makeTycons tokens)]
@@ -710,51 +727,54 @@ structure CodeGenerator = struct
     let
       fun makePat symbol = 
         case Grammar.kindOf symbol of
-          Grammar.Nonterm =>  MLAst.AsisPat ("(" ^ Grammar.identOfSymbol symbol ^ " _)")
-        | Grammar.UnitTerm => MLAst.AsisPat ("(" ^ Grammar.identOfSymbol symbol ^ ")")
-        | _ =>                MLAst.AsisPat ("(" ^ Grammar.identOfSymbol symbol ^ " a)")
+          Grammar.Nonterm =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
+        | Grammar.UnitTerm => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
+        | _ =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
       fun makeBody symbol =
         case Grammar.kindOf symbol of
-          Grammar.UnitTerm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "\"")
-        | Grammar.IntTerm  => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ Int.toString a ^ \")\"")
-        | Grammar.StrTerm  => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ a ^ \")\"")
-        | Grammar.CharTerm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ Char.toString a ^ \")\"")
-        | Grammar.RealTerm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "(\" ^ Real.toString a ^ \")\"")
-        | Grammar.Nonterm => MLAst.AsisExp ("\"" ^ Grammar.identOfSymbol symbol ^ "\"")
+          Grammar.UnitTerm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
+        | Grammar.IntTerm  => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Int.toString a ^ \")\"")
+        | Grammar.StrTerm  => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ a ^ \")\"")
+        | Grammar.CharTerm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Char.toString a ^ \")\"")
+        | Grammar.RealTerm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Real.toString a ^ \")\"")
+        | Grammar.Nonterm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
       val patExps = List.map (fn token => ([makePat token], makeBody token)) tokens
     in
       MLAst.Fun [("show", patExps)]
     end
-
-  fun nt2dt nonterm = Util.toLower (Util.chopDigit (Grammar.identOfSymbol nonterm))
 
   (* makeAstDatatype : string list -> Grammar.rule list -> MLAst.dec *)
   (* example output:
        datatype grammar =
          Grammar of Lex.span * defs
        and defs = ... *)
-  fun makeAstDatatype datatypeNames rules =
+  fun makeAstDatatype idents rules =
     let
       fun makeDatatype name =
         let
-          fun ruleFor name = List.filter (fn rule => name = nt2dt (Grammar.lhsOf rule) andalso Grammar.isConsDefined (Grammar.consOf rule)) rules
-          fun symToTycon sym = 
-            case Grammar.kindOf sym of
-              Grammar.Nonterm => SOME (MLAst.Tycon (nt2dt sym))
-            | kind => kindToTycon kind
-          fun f rhs =
-            case List.mapPartial symToTycon rhs of
-              [] => MLAst.Tycon "Lex.span"
-            | tys => MLAst.TupleType (MLAst.Tycon "Lex.span"::tys)
-          fun consId (Grammar.Id l) = l
+          val rules =
+            List.filter
+            (fn rule =>
+              name = Grammar.identOfSymbol (Grammar.lhsOf rule)
+              andalso Grammar.levelOf (Grammar.lhsOf rule) = 0)
+            rules
+          fun ruleToCons rule =
+            case Grammar.consOf rule of
+              Grammar.Wild     => NONE
+            | Grammar.ListE    => NONE
+            | Grammar.ListCons => NONE
+            | Grammar.ListOne  => NONE
+            | Grammar.Id ident =>
+                case List.mapPartial (symToTycon "") (Grammar.rhsOf rule) of
+                  []  => SOME (ident, SOME (MLAst.Tycon "Lex.span"))
+                | tys => SOME (ident, SOME (MLAst.TupleType (MLAst.Tycon "Lex.span"::tys)))
         in
           (* type name and constructors *)
-          (name,
-          List.map (fn rule => (consId (Grammar.consOf rule), SOME (f (Grammar.rhsOf rule)))) (ruleFor name))
+          ((Util.toLower o Util.chopDigit) name, List.mapPartial ruleToCons rules)
         end
     in
       (* this makes mutually recursive datatypes *)
-      MLAst.Datatype (List.map makeDatatype datatypeNames)
+      MLAst.Datatype (List.map makeDatatype idents)
     end
 
   (* example output:
@@ -765,10 +785,8 @@ structure CodeGenerator = struct
   fun makeCategoryDatatype typeName symbols =
     let
       fun f symbol =
-        let val name = Grammar.identOfSymbol symbol in
-          case Grammar.kindOf symbol of
-            Grammar.Nonterm => (name, SOME (MLAst.Tycon ("Ast." ^ nt2dt symbol)))
-          | kind => (name, kindToTycon kind)
+        let val name = symToCategory symbol in
+          (name, symToTycon "Ast." symbol)
         end
       fun makeTycons tokens = List.map f tokens
     in
@@ -804,8 +822,8 @@ structure CodeGenerator = struct
   fun makeStMrule automaton (symbol, next) =
     let
       val pat = if holdSv symbol
-                then MLAst.AsisPat (Grammar.identOfSymbol symbol ^ " _")
-                else MLAst.AsisPat (Grammar.identOfSymbol symbol)
+                then MLAst.AsisPat (symToCategory symbol ^ " _")
+                else MLAst.AsisPat (symToCategory symbol)
       val (reduce, shift) = Automaton.stateOf next automaton
       val stNum = Int.toString next
       val shiftExp =
@@ -847,7 +865,7 @@ structure CodeGenerator = struct
             let
               fun toString (sym, sv, stNum, pos) =
                 "("
-                ^ Grammar.identOfSymbol sym
+                ^ symToCategory sym
                 ^ (case sv of SOME sv => " " ^ sv | NONE => "")
                 ^ ", "
                 ^ pos
@@ -862,7 +880,15 @@ structure CodeGenerator = struct
             case cons of 
               Grammar.Id c => MLAst.AppExp (MLAst.AsisExp ("Ast." ^ c), MLAst.TupleExp (MLAst.AsisExp ("(" ^ fromPos ^ ", pos)")::map MLAst.AsisExp svalues))
             | Grammar.Wild => MLAst.TupleExp (map MLAst.AsisExp svalues)
-          val currentAst = MLAst.AppExp (MLAst.AsisExp (Grammar.identOfSymbol lhs), svaluesAst)
+            | Grammar.ListE => MLAst.AsisExp "[]"
+            | Grammar.ListCons => 
+                let
+                  val head = List.nth (svalues, 0)
+                  val tail = List.nth (svalues, 1)
+                in
+                  MLAst.AsisExp ("(" ^ head ^ "::" ^ tail ^ ")")
+                end
+          val currentAst = MLAst.AppExp (MLAst.AsisExp (symToCategory lhs), svaluesAst)
         in
           ("st" ^ n ^ "r", [
               if lhs = Grammar.S' then
@@ -911,9 +937,9 @@ structure CodeGenerator = struct
           [MLAst.Dec tokenDatatype,
            MLAst.Dec tokenShowFun])]
     
-      (* Aat *)
-      val astDatatypeNames = List.foldr Util.add [] (map nt2dt nonterms)
-      val astDatatype = makeAstDatatype astDatatypeNames rules
+      (* Ast *)
+      val idents = List.foldr Util.add [] (map Grammar.identOfSymbol nonterms)
+      val astDatatype = makeAstDatatype idents rules
       val astStructure =
         MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
     
