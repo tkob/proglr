@@ -17,22 +17,22 @@
 %let quot = ["];
 %let backslash = [\\];
 
-<INITIAL> ";" => (SEMI);
-<INITIAL> "." => (DOT);
-<INITIAL> "::=" => (AS);
-<INITIAL> "[" => (LBRACKET);
-<INITIAL> "]" => (RBRACKET);
-<INITIAL> "_" => (UNDERSCORE);
-<INITIAL> "(" => (LPAREN);
-<INITIAL> ")" => (RPAREN);
-<INITIAL> ":" => (COLON);
-<INITIAL> token => (TOKEN);
-<INITIAL> of => (OF);
-<INITIAL> {letter} {ident}* => (IDENT yytext);
-<INITIAL> {digit}+ => (INT (Option.valOf (Int.fromString (yytext))));
-<INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (FLOAT (Option.valOf (Real.fromString (yytext))));
+<INITIAL> ";" => (Semi);
+<INITIAL> "." => (Dot);
+<INITIAL> "::=" => (As);
+<INITIAL> "[" => (LBracket);
+<INITIAL> "]" => (RBracket);
+<INITIAL> "_" => (Underscore);
+<INITIAL> "(" => (LParen);
+<INITIAL> ")" => (RParen);
+<INITIAL> ":" => (Colon);
+<INITIAL> token => (TokenKw);
+<INITIAL> of => (OfKw);
+<INITIAL> {letter} {ident}* => (Ident yytext);
+<INITIAL> {digit}+ => (Integer (Option.valOf (Int.fromString (yytext))));
+<INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (Double (Option.valOf (Real.fromString (yytext))));
 <INITIAL> {quot} => (YYBEGIN IN_STRING; continue ());
 <INITIAL> {space}+ => (continue ());
 
-<IN_STRING> ([^"]|{backslash}{quot})* => (STRING (unescape yytext)); 
+<IN_STRING> ([^"]|{backslash}{quot})* => (String (unescape yytext)); 
 <IN_STRING> {quot} => (YYBEGIN INITIAL; continue ());

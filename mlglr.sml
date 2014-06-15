@@ -177,8 +177,8 @@ structure Grammar :> GRAMMAR = struct
         let
           fun termsOfGrammar (Parse.Ast.Grammar (_, tokens, _)) terms =
                 termsOfTokens tokens terms
-          and termsOfTokens (Parse.Ast.NilToken _) terms = []
-            | termsOfTokens (Parse.Ast.ConsToken (_, token, tokens)) terms =
+          and termsOfTokens [] terms = []
+            | termsOfTokens (token::tokens) terms =
                 termsOfToken token (termsOfTokens tokens terms)
           and termsOfToken (Parse.Ast.Keyword (_, name, literal)) terms =
                 let
@@ -220,8 +220,8 @@ structure Grammar :> GRAMMAR = struct
         let
           fun nontermsOfGrammar (Parse.Ast.Grammar (_, tokens, defs)) syms =
                 nontermsOfDefs defs syms
-          and nontermsOfDefs (Parse.Ast.NilDef _) syms = []
-            | nontermsOfDefs (Parse.Ast.ConsDef (_, def, defs)) syms =
+          and nontermsOfDefs [] syms = []
+            | nontermsOfDefs (def::defs) syms =
                 nontermsOfDef def (nontermsOfDefs defs syms)
           and nontermsOfDef (Parse.Ast.Rule (_, label, cat, items)) syms =
                 nontermsOfCat cat syms
@@ -241,13 +241,13 @@ structure Grammar :> GRAMMAR = struct
       val rules =
         let
           fun rulesOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) rules = rulesOfDefs defs rules
-          and rulesOfDefs (Parse.Ast.NilDef _) rules = []
-            | rulesOfDefs (Parse.Ast.ConsDef (_, def, defs)) rules =
+          and rulesOfDefs [] rules = []
+            | rulesOfDefs (def::defs) rules =
                 rulesOfDef def (rulesOfDefs defs rules)
           and rulesOfDef (Parse.Ast.Rule (_, label, cat, items)) rules =
                 let
-                  fun toList (Parse.Ast.NilItem _) = []
-                    | toList (Parse.Ast.ConsItem (_, item, items)) = item::(toList items)
+                  fun toList [] = []
+                    | toList (item::items) = item::(toList items)
                   val items' = toList items
                   val cons = labelToCons label
                   val lhs = SymbolHashTable.lookup table (catToHandle cat) handle Absent => raise Fail "b"

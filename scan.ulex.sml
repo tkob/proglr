@@ -112,31 +112,31 @@ Vector.fromList []
 	    val yylastwasnref = ref (ULexBuffer.lastWasNL (!yystrm))
 	    fun continue() = let val yylastwasn = !yylastwasnref in
 let
-fun yyAction0 (strm, lastMatch : yymatch) = (yystrm := strm;  SEMI)
-fun yyAction1 (strm, lastMatch : yymatch) = (yystrm := strm;  DOT)
-fun yyAction2 (strm, lastMatch : yymatch) = (yystrm := strm;  AS)
-fun yyAction3 (strm, lastMatch : yymatch) = (yystrm := strm;  LBRACKET)
-fun yyAction4 (strm, lastMatch : yymatch) = (yystrm := strm;  RBRACKET)
-fun yyAction5 (strm, lastMatch : yymatch) = (yystrm := strm;  UNDERSCORE)
-fun yyAction6 (strm, lastMatch : yymatch) = (yystrm := strm;  LPAREN)
-fun yyAction7 (strm, lastMatch : yymatch) = (yystrm := strm;  RPAREN)
-fun yyAction8 (strm, lastMatch : yymatch) = (yystrm := strm;  COLON)
-fun yyAction9 (strm, lastMatch : yymatch) = (yystrm := strm;  TOKEN)
-fun yyAction10 (strm, lastMatch : yymatch) = (yystrm := strm;  OF)
+fun yyAction0 (strm, lastMatch : yymatch) = (yystrm := strm;  Semi)
+fun yyAction1 (strm, lastMatch : yymatch) = (yystrm := strm;  Dot)
+fun yyAction2 (strm, lastMatch : yymatch) = (yystrm := strm;  As)
+fun yyAction3 (strm, lastMatch : yymatch) = (yystrm := strm;  LBracket)
+fun yyAction4 (strm, lastMatch : yymatch) = (yystrm := strm;  RBracket)
+fun yyAction5 (strm, lastMatch : yymatch) = (yystrm := strm;  Underscore)
+fun yyAction6 (strm, lastMatch : yymatch) = (yystrm := strm;  LParen)
+fun yyAction7 (strm, lastMatch : yymatch) = (yystrm := strm;  RParen)
+fun yyAction8 (strm, lastMatch : yymatch) = (yystrm := strm;  Colon)
+fun yyAction9 (strm, lastMatch : yymatch) = (yystrm := strm;  TokenKw)
+fun yyAction10 (strm, lastMatch : yymatch) = (yystrm := strm;  OfKw)
 fun yyAction11 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
-        yystrm := strm;  IDENT yytext
+        yystrm := strm;  Ident yytext
       end
 fun yyAction12 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
-        yystrm := strm;  INT (Option.valOf (Int.fromString (yytext)))
+        yystrm := strm;  Integer (Option.valOf (Int.fromString (yytext)))
       end
 fun yyAction13 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
-        yystrm := strm;  FLOAT (Option.valOf (Real.fromString (yytext)))
+        yystrm := strm;  Double (Option.valOf (Real.fromString (yytext)))
       end
 fun yyAction14 (strm, lastMatch : yymatch) = (yystrm := strm;
        YYBEGIN IN_STRING; continue ())
@@ -144,7 +144,7 @@ fun yyAction15 (strm, lastMatch : yymatch) = (yystrm := strm;  continue ())
 fun yyAction16 (strm, lastMatch : yymatch) = let
       val yytext = yymktext(strm)
       in
-        yystrm := strm;  STRING (unescape yytext)
+        yystrm := strm;  String (unescape yytext)
       end
 fun yyAction17 (strm, lastMatch : yymatch) = (yystrm := strm;
        YYBEGIN INITIAL; continue ())
