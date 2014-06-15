@@ -1,6 +1,14 @@
 $(SML_LIB)/basis/basis.mlb
-$(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
-ml-lpt/lib/mllpt-lib.mlb
+
+smlnj-lib/Util/utf8.mlb
+
+ml-lpt/lib/stream-pos.sml
+ml-lpt/lib/antlr-lexer-sig.sml
+ml-lpt/lib/antlr-tokens-sig.sml
+ml-lpt/lib/ebnf.sml
+ml-lpt/lib/repair.sml
+ml-lpt/lib/ulex-buffer.sml
+ml-lpt/lib/wrapped-strm.sml
 cmlib/hash-inc.sig
 cmlib/hash-inc.sml
 cmlib/idict.sig
