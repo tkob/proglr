@@ -1,0 +1,13 @@
+mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml 
+	mlkit -output 'mlglr' mlglr.mlb 
+
+scan.ulex.sml: scan.ulex
+	ml-ulex scan.ulex
+
+clean:
+	rm -f mlglr
+	rm -rf ./cmlib/MLB
+	rm -rf ./MLB
+	rm -rf ./smlnj-lib/Util/MLB
+	rm -rf ./ml-lpt/lib/MLB
+
