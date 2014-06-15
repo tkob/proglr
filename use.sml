@@ -2,8 +2,8 @@
 
 structure Position = Int; (* for Moscow ML *)
 
-use "mlton/lib/smlnj-lib/smlnj-lib/Util/utf8-sig.sml";
-use "mlton/lib/smlnj-lib/smlnj-lib/Util/utf8.sml";
+use "smlnj-lib/Util/utf8-sig.sml";
+use "smlnj-lib/Util/utf8.sml";
 use "ml-lpt/lib/stream-pos.sml";
 use "ml-lpt/lib/antlr-lexer-sig.sml";
 use "ml-lpt/lib/antlr-tokens-sig.sml";
