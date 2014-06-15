@@ -1,0 +1,32 @@
+_require "basis.smi"
+
+structure AntlrStreamPos  = 
+ struct 
+  type pos = Position.int
+  type span = pos * pos
+  type sourceloc (= boxed)
+  type sourcemap (= boxed)
+
+  exception PosMustIncrease
+
+  (* the result of moving forward an integer number of characters *)
+  val forward : pos * int -> pos
+
+  val mkSourcemap  : unit   -> sourcemap
+  val mkSourcemap' : string -> sourcemap
+
+  val same : sourcemap * sourcemap -> bool
+
+  (* log a new line occurence *)
+  val markNewLine : sourcemap -> pos -> unit
+  (* resychronize to a full source location *)
+  val resynch     : sourcemap -> pos * sourceloc -> unit
+
+  val sourceLoc	: sourcemap -> pos -> sourceloc
+  val fileName	: sourcemap -> pos -> string option
+  val lineNo	: sourcemap -> pos -> int
+  val colNo	: sourcemap -> pos -> int
+  val toString	: sourcemap -> pos -> string
+  val spanToString : sourcemap -> span -> string
+
+ end 
