@@ -1,0 +1,55 @@
+_require "basis.smi"
+_require "ml-lpt/lib/stream-pos.smi"
+
+structure Token = struct
+  datatype token =
+    EOF
+  | Semi
+  | Dot
+  | As
+  | LBracket
+  | RBracket
+  | Underscore
+  | LParen
+  | RParen
+  | Colon
+  | TokenKw
+  | OfKw
+  | Integer of int
+  | Double of real
+  | Char of char
+  | String of string
+  | Ident of string
+end
+
+functor ParseFun(Lex : sig
+  type strm
+  type pos
+  type span = pos * pos
+  type tok
+  val lex : AntlrStreamPos.sourcemap -> strm -> tok * span * strm
+  val getPos : strm -> pos
+end where type tok = Token.token) = struct
+  structure Ast = struct
+    datatype grammar =
+      Grammar of Lex.span * token list * def list
+    and token =
+      Keyword of Lex.span * string * string
+    | AttrToken of Lex.span * string * string
+    | NoAttrToken of Lex.span * string
+    and def =
+      Rule of Lex.span * label * cat * item list
+    and item =
+      Terminal of Lex.span * string
+    | NTerminal of Lex.span * cat
+    and cat =
+      ListCat of Lex.span * cat
+    | IdCat of Lex.span * string
+    and label =
+      Id of Lex.span * string
+    | Wild of Lex.span
+    | ListE of Lex.span
+    | ListCons of Lex.span
+    | ListOne of Lex.span
+  end
+end
