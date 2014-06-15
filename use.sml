@@ -4,13 +4,13 @@ structure Position = Int; (* for Moscow ML *)
 
 use "mlton/lib/smlnj-lib/smlnj-lib/Util/utf8-sig.sml";
 use "mlton/lib/smlnj-lib/smlnj-lib/Util/utf8.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/stream-pos.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/antlr-lexer-sig.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/antlr-tokens-sig.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/ebnf.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/repair.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/ulex-buffer.sml";
-use "mlton/lib/mllpt-lib/ml-lpt/lib/wrapped-strm.sml";
+use "ml-lpt/lib/stream-pos.sml";
+use "ml-lpt/lib/antlr-lexer-sig.sml";
+use "ml-lpt/lib/antlr-tokens-sig.sml";
+use "ml-lpt/lib/ebnf.sml";
+use "ml-lpt/lib/repair.sml";
+use "ml-lpt/lib/ulex-buffer.sml";
+use "ml-lpt/lib/wrapped-strm.sml";
 
 use "cmlib/hash-inc.sig";
 use "cmlib/hash-inc.sml";
