@@ -748,7 +748,7 @@ structure CodeGenerator = struct
           val rules =
             List.filter
             (fn rule =>
-              name = Grammar.identOfSymbol (Grammar.lhsOf rule)
+              name = Util.chopDigit (Grammar.identOfSymbol (Grammar.lhsOf rule))
               andalso Grammar.levelOf (Grammar.lhsOf rule) = 0)
             rules
           fun ruleToCons rule =
@@ -763,7 +763,7 @@ structure CodeGenerator = struct
                 | tys => SOME (ident, SOME (MLAst.TupleType (MLAst.Tycon "Lex.span"::tys)))
         in
           (* type name and constructors *)
-          ((Util.toLower o Util.chopDigit) name, List.mapPartial ruleToCons rules)
+          (Util.toLower name, List.mapPartial ruleToCons rules)
         end
     in
       (* this makes mutually recursive datatypes *)
@@ -932,7 +932,7 @@ structure CodeGenerator = struct
            MLAst.Dec tokenShowFun])]
     
       (* Ast *)
-      val idents = List.foldr Util.add [] (map Grammar.identOfSymbol nonterms)
+      val idents = List.foldr Util.add [] (map (Util.chopDigit o Grammar.identOfSymbol) nonterms)
       val astDatatype = makeAstDatatype idents rules
       val astStructure =
         MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
