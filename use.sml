@@ -21,4 +21,4 @@ use "cmlib/hash-table.sml";
 
 use "parse.sml";
 use "scan.ulex.sml";
-use "mlglr.sml";
+use "proglr.sml";

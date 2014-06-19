@@ -1,11 +1,11 @@
-mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml 
-	mlkit -output 'mlglr' mlglr.mlb 
+proglr: parse.sml scan.ulex.sml proglr.sml boot.sml 
+	mlkit -output 'proglr' proglr.mlb 
 
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
 clean:
-	rm -f mlglr
+	rm -f proglr
 	rm -rf ./cmlib/MLB
 	rm -rf ./MLB
 	rm -rf ./smlnj-lib/Util/MLB

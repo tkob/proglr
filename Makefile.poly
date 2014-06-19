@@ -1,4 +1,4 @@
-mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml 
+proglr: parse.sml scan.ulex.sml proglr.sml boot.sml 
 	./polybuild.tcl \
 		smlnj-lib/Util/utf8-sig.sml \
 		smlnj-lib/Util/utf8.sml \
@@ -17,13 +17,13 @@ mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml
 		cmlib/hash-table.sml \
 		parse.sml \
 		scan.ulex.sml \
-		mlglr.sml
-	polyc -o mlglr a.o
+		proglr.sml
+	polyc -o proglr a.o
 
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
 clean:
-	rm -f mlglr
+	rm -f proglr
 	rm -f *.o
 

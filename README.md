@@ -1,4 +1,4 @@
-mlglr
-=====
+proglr
+======
 
-ML-GLR: GLR Parser Generator for Standard ML
+Proglr: GLR Parser Generator for Standard ML

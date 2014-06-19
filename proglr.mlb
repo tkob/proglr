@@ -18,5 +18,5 @@ cmlib/hash-table.sml
 
 parse.sml
 scan.ulex.sml
-mlglr.sml
+proglr.sml
 boot.sml

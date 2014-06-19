@@ -4,7 +4,7 @@ SMLSHARP = smlsharp
 SMLSHARPFLAGS = 
 DEPEND = Makefile.smlsharp.depend
 
-EXEC = mlglr
+EXEC = proglr
 SRCS = \
 	smlnj-lib/Util/utf8-sig.sml \
 	smlnj-lib/Util/utf8.sml \
@@ -23,7 +23,7 @@ SRCS = \
 	cmlib/hash-table.sml \
 	parse.sml \
 	scan.ulex.sml \
-	mlglr.sml \
+	proglr.sml \
 	boot.sml
 
 OBJS = $(SRCS:.sml=.o)

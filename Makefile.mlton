@@ -1,10 +1,10 @@
-mlglr: parse.sml scan.ulex.sml mlglr.sml boot.sml 
+proglr: parse.sml scan.ulex.sml proglr.sml boot.sml 
 	mlton \
-	-output 'mlglr' \
-	mlglr.mlb 
+	-output 'proglr' \
+	proglr.mlb 
 
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
 clean:
-	rm -f mlglr
+	rm -f proglr
