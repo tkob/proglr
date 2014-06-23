@@ -6,7 +6,7 @@
 );
 
 %name Lexer;
-%states IN_STRING;
+%states IN_STRING IN_COMMENT;
 
 %let letter = [a-zA-Z\u00c0-\u00ff] & [^\u00d7\u00f7];
 %let capital = [A-Z\u00c0-\u00dd] & [^\u00d7];
@@ -32,7 +32,12 @@
 <INITIAL> {digit}+ => (Integer (Option.valOf (Int.fromString (yytext))));
 <INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (Double (Option.valOf (Real.fromString (yytext))));
 <INITIAL> {quot} => (YYBEGIN IN_STRING; continue ());
+<INITIAL> "{-" => (YYBEGIN IN_COMMENT; continue ());
+<INITIAL> "--" [^\n]* [\n] => (continue ());
 <INITIAL> {space}+ => (continue ());
 
 <IN_STRING> ([^"]|{backslash}{quot})* => (String (unescape yytext)); 
 <IN_STRING> {quot} => (YYBEGIN INITIAL; continue ());
+
+<IN_COMMENT> "-}" => (YYBEGIN INITIAL; continue ());
+<IN_COMMENT> . => (continue ());
