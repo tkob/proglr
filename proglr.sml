@@ -110,7 +110,7 @@ signature GRAMMAR = sig
 end
 
 structure Grammar :> GRAMMAR = struct
-  structure Handle :> HASHABLE where type t = string * int = struct
+  structure Handle (* :> HASHABLE where type t = string * int *) = struct
     (* handle for grammatical symbol.
        T = ("T", 0), [T] = ("T", 1), [[T]] = ("T", 2), ... *)
     type t = string * int
@@ -122,6 +122,8 @@ structure Grammar :> GRAMMAR = struct
       in
         Word8Vector.foldl hash (Word.fromInt level) (Byte.stringToBytes ident)
       end
+    fun show (ident, 0) = ident
+      | show (ident, level) = "[" ^ show (ident, level - 1) ^ "]"
   end
   structure SymbolHashTable = HashTable(Handle)
 
@@ -274,13 +276,14 @@ structure Grammar :> GRAMMAR = struct
                     | toList (item::items) = item::(toList items)
                   val items' = toList items
                   val cons = labelToCons label
-                  val lhs = SymbolHashTable.lookup table (catToHandle cat) handle Absent => raise Fail "b"
+                  val lhs = SymbolHashTable.lookup table (catToHandle cat)
+                            handle Absent => raise Fail "error while constructing a grammar from AST. (possible bug)"
                   fun l i =
                     let
                       val h = itemToHandle i
                     in
                       SymbolHashTable.lookup table h
-                      handle Absent => raise Fail (#1 h)
+                      handle Absent => raise Fail ("symbol " ^ (Handle.show h) ^ " not defined.")
                     end
                   val rhs = map l items'
                 in
@@ -924,8 +927,8 @@ structure CodeGenerator = struct
             | Grammar.ListE => MLAst.AsisExp "[]"
             | Grammar.ListCons => 
                 let
-                  val head = List.nth (svalues, 0)
-                  val tail = List.nth (svalues, 1)
+                  val head = List.nth (svalues, 0) handle Subscript => raise Fail "a"
+                  val tail = List.nth (svalues, 1) handle Subscript => raise Fail "b"
                 in
                   MLAst.AsisExp ("(" ^ head ^ "::" ^ tail ^ ")")
                 end
