@@ -225,6 +225,10 @@ structure Grammar :> GRAMMAR = struct
                 nontermsOfDef def (nontermsOfDefs defs syms)
           and nontermsOfDef (Parse.Ast.Rule (_, label, cat, items)) syms =
                 nontermsOfCat cat syms
+            | nontermsOfDef (Parse.Ast.Separator (span, minimumsize, cat, separator)) syms =
+                nontermsOfCat (Parse.Ast.ListCat (span, cat)) syms
+            | nontermsOfDef (Parse.Ast.Terminator (span, minimumsize, cat, terminator)) syms =
+                nontermsOfCat (Parse.Ast.ListCat (span, cat)) syms
           and nontermsOfCat cat syms = 
                 let
                   val hand = catToHandle cat
@@ -240,6 +244,26 @@ structure Grammar :> GRAMMAR = struct
       val _ = List.app (fn ((name, level),v) => print (name ^ ":" ^ Int.toString level ^ "\n")) entries *)
       val rules =
         let
+          fun makeNilRule span cat =
+            Parse.Ast.Rule
+              (span, Parse.Ast.ListE span, Parse.Ast.ListCat (span, cat), [])
+          fun makeOneRule span cat separator =
+            Parse.Ast.Rule
+              (span,
+               Parse.Ast.ListOne span,
+               Parse.Ast.ListCat (span, cat),
+               [Parse.Ast.NTerminal (span, cat)]
+               @ (if separator = "" then []
+                  else [Parse.Ast.Terminal (span, separator)]))
+          fun makeConsRule span cat separator =
+            Parse.Ast.Rule
+              (span,
+               Parse.Ast.ListCons span,
+               Parse.Ast.ListCat (span, cat),
+               [Parse.Ast.NTerminal (span, cat)]
+               @ (if separator = "" then []
+                  else [Parse.Ast.Terminal (span, separator)])
+               @ [Parse.Ast.NTerminal (span, Parse.Ast.ListCat (span, cat))])
           fun rulesOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) rules = rulesOfDefs defs rules
           and rulesOfDefs [] rules = []
             | rulesOfDefs (def::defs) rules =
@@ -261,6 +285,30 @@ structure Grammar :> GRAMMAR = struct
                   val rhs = map l items'
                 in
                   (cons, lhs, rhs)::rules
+                end
+            | rulesOfDef (Parse.Ast.Separator (span, minimumsize, cat, separator)) rules =
+                let
+                  val emptyCase = makeNilRule span cat
+                  val oneCase = makeOneRule span cat ""
+                  val consCase = makeConsRule span cat separator
+                in
+                  case minimumsize of
+                      Parse.Ast.MEmpty _ =>
+                        rulesOfDef consCase (rulesOfDef oneCase (rulesOfDef emptyCase rules))
+                    | Parse.Ast.MNonempty _ =>
+                        rulesOfDef consCase (rulesOfDef oneCase rules)
+                end
+            | rulesOfDef (Parse.Ast.Terminator (span, minimumsize, cat, terminator)) rules =
+                let
+                  val emptyCase = makeNilRule span cat
+                  val oneCase = makeOneRule span cat terminator
+                  val consCase = makeConsRule span cat terminator
+                in
+                  case minimumsize of
+                      Parse.Ast.MEmpty _ =>
+                        rulesOfDef consCase (rulesOfDef emptyCase rules)
+                    | Parse.Ast.MNonempty _ =>
+                        rulesOfDef consCase (rulesOfDef oneCase rules)
                 end
         in
           rulesOfGrammar ast []
@@ -1038,6 +1086,7 @@ structure Main = struct
       val ast = Parse.parse sourcemap strm
       val grammar = Grammar.fromAst (hd ast)
     in
+      (* Grammar.printGrammar grammar *)
       CodeGenerator.generateParser outs grammar
     end
 end
