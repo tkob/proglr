@@ -1,0 +1,37 @@
+smlnj-lib/Util/utf8-sig.o: smlnj-lib/Util/utf8-sig.sml \
+ smlnj-lib/Util/utf8-sig.smi smlnj-lib/Util/utf8-sig.smi
+smlnj-lib/Util/utf8.o: smlnj-lib/Util/utf8.sml smlnj-lib/Util/utf8.smi \
+ smlnj-lib/Util/utf8-sig.sml smlnj-lib/Util/utf8.smi
+ml-lpt/lib/stream-pos.o: ml-lpt/lib/stream-pos.sml ml-lpt/lib/stream-pos.smi \
+ ml-lpt/lib/stream-pos.smi
+ml-lpt/lib/antlr-lexer-sig.o: ml-lpt/lib/antlr-lexer-sig.sml \
+ ml-lpt/lib/antlr-lexer-sig.smi ml-lpt/lib/stream-pos.smi \
+ ml-lpt/lib/antlr-lexer-sig.smi
+ml-lpt/lib/antlr-tokens-sig.o: ml-lpt/lib/antlr-tokens-sig.sml \
+ ml-lpt/lib/antlr-tokens-sig.smi ml-lpt/lib/antlr-tokens-sig.smi
+ml-lpt/lib/ebnf.o: ml-lpt/lib/ebnf.sml ml-lpt/lib/ebnf.smi \
+ ml-lpt/lib/stream-pos.smi ml-lpt/lib/ebnf.smi
+ml-lpt/lib/repair.o: ml-lpt/lib/repair.sml ml-lpt/lib/repair.smi \
+ ml-lpt/lib/stream-pos.smi ml-lpt/lib/repair.smi
+ml-lpt/lib/ulex-buffer.o: ml-lpt/lib/ulex-buffer.sml \
+ ml-lpt/lib/ulex-buffer.smi ml-lpt/lib/stream-pos.smi \
+ ml-lpt/lib/ulex-buffer.smi
+ml-lpt/lib/wrapped-strm.o: ml-lpt/lib/wrapped-strm.sml \
+ ml-lpt/lib/wrapped-strm.smi ml-lpt/lib/antlr-tokens-sig.sml \
+ ml-lpt/lib/antlr-lexer-sig.sml ml-lpt/lib/stream-pos.smi \
+ ml-lpt/lib/repair.smi ml-lpt/lib/wrapped-strm.smi
+/home/ether/cmlib/hash-inc.o: /home/ether/cmlib/hash-inc.sig
+/home/ether/cmlib/hash-inc.o: /home/ether/cmlib/hash-inc.sml \
+ /home/ether/cmlib/hash-inc.smi /home/ether/cmlib/hash-inc.sig \
+ /home/ether/cmlib/hash-inc.smi
+/home/ether/cmlib/idict.o: /home/ether/cmlib/idict.sig
+/home/ether/cmlib/hashable.o: /home/ether/cmlib/hashable.sig
+/home/ether/cmlib/hash-table.o: /home/ether/cmlib/hash-table.sig
+/home/ether/cmlib/hash-table.o: /home/ether/cmlib/hash-table.sml \
+ /home/ether/cmlib/hash-table.smi /home/ether/cmlib/hash-inc.sig \
+ /home/ether/cmlib/idict.sig /home/ether/cmlib/hashable.sig \
+ /home/ether/cmlib/hash-table.sig /home/ether/cmlib/hash-table.smi
+parse.o: parse.sml parse.smi parse.smi
+scan.ulex.o: scan.ulex.sml
+mlglr.o: mlglr.sml mlglr.smi mlglr.smi
+boot.o: boot.sml
