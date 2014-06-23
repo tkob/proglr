@@ -34,6 +34,7 @@
 <INITIAL> {letter} {ident}* => (Ident yytext);
 <INITIAL> {digit}+ => (Integer (Option.valOf (Int.fromString (yytext))));
 <INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (Double (Option.valOf (Real.fromString (yytext))));
+<INITIAL> {quot}{2} => (String "");
 <INITIAL> {quot} => (YYBEGIN IN_STRING; continue ());
 <INITIAL> "{-" => (YYBEGIN IN_COMMENT; continue ());
 <INITIAL> "--" [^\n]* [\n] => (continue ());
