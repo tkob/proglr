@@ -11,4 +11,7 @@ structure Lexer  = struct
   type tok = Token.token
   val lex : AntlrStreamPos.sourcemap -> strm -> tok * span * strm
   val getPos : strm -> pos
+  val streamify : (unit -> string) -> strm
+  val streamifyReader : (char, 'a) StringCvt.reader -> 'a -> strm
+  val streamifyInstream  : TextIO.instream -> strm
 end

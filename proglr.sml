@@ -123,7 +123,7 @@ structure Grammar :> GRAMMAR = struct
         Word8Vector.foldl hash (Word.fromInt level) (Byte.stringToBytes ident)
       end
   end
-  structure SymbolHashTable = HashTable(structure Key = Handle)
+  structure SymbolHashTable = HashTable(Handle)
 
   datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm | RealTerm
   type symbol = Handle.t * kind

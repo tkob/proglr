@@ -15,11 +15,7 @@ SRCS = \
 	ml-lpt/lib/repair.sml \
 	ml-lpt/lib/ulex-buffer.sml \
 	ml-lpt/lib/wrapped-strm.sml \
-	cmlib/hash-inc.sig \
 	cmlib/hash-inc.sml \
-	cmlib/idict.sig \
-	cmlib/hashable.sig \
-	cmlib/hash-table.sig \
 	cmlib/hash-table.sml \
 	parse.sml \
 	scan.ulex.sml \
@@ -30,8 +26,11 @@ OBJS = $(SRCS:.sml=.o)
 
 all: $(EXEC)
 
-$(EXEC): $(EXEC).smi $(OBJS)
-	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ $(EXEC).smi
+$(EXEC): boot.smi $(EXEC).smi $(OBJS)
+	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ boot.smi
+
+scan.ulex.sml: scan.ulex
+	ml-ulex scan.ulex
 
 %.o: %.sml
 	$(SMLSHARP) $(SMLSHARPFLAGS) -c $<
@@ -42,4 +41,4 @@ depend:
 include $(DEPEND)
 
 clean:
-	rm -f $(OBJS) $(EXEC)
+	rm -f $(OBJS) $(EXEC) scan.ulex.sml

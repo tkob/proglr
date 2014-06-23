@@ -1,4 +1,9 @@
 _require "basis.smi"
 _require "scan.ulex.smi"
 _require "parse.smi"
+_require "cmlib/hashable.sig"
+_require "cmlib/hash-inc.smi"
+_require "cmlib/hash-table.smi"
+_require "ml-lpt/lib/stream-pos.smi"
 
+val main : unit -> unit

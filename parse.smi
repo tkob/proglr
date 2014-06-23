@@ -52,4 +52,5 @@ end where type tok = Token.token) = struct
     | ListCons of Lex.span
     | ListOne of Lex.span
   end
+  val parse : AntlrStreamPos.sourcemap -> Lex.strm -> Ast.grammar list
 end
