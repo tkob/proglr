@@ -1084,7 +1084,10 @@ structure Main = struct
 (*    in
       Parse.parse sourcemap strm *)
       val ast = Parse.parse sourcemap strm
-      val grammar = Grammar.fromAst (hd ast)
+      val grammar =
+        case ast of
+          [ast] => Grammar.fromAst ast
+        | _ => raise Fail "parsing failed"
     in
       (* Grammar.printGrammar grammar *)
       CodeGenerator.generateParser outs grammar
