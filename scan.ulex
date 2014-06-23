@@ -28,6 +28,9 @@
 <INITIAL> ":" => (Colon);
 <INITIAL> token => (TokenKw);
 <INITIAL> of => (OfKw);
+<INITIAL> separator => (SeparatorKw);
+<INITIAL> terminator => (TerminatorKw);
+<INITIAL> nonempty => (NonemptyKw);
 <INITIAL> {letter} {ident}* => (Ident yytext);
 <INITIAL> {digit}+ => (Integer (Option.valOf (Int.fromString (yytext))));
 <INITIAL> {digit}+ "." {digit}+ ("e" ("-")? {digit}+)? => (Double (Option.valOf (Real.fromString (yytext))));
