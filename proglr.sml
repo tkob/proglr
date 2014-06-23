@@ -231,6 +231,14 @@ structure Grammar :> GRAMMAR = struct
                 nontermsOfCat (Parse.Ast.ListCat (span, cat)) syms
             | nontermsOfDef (Parse.Ast.Terminator (span, minimumsize, cat, terminator)) syms =
                 nontermsOfCat (Parse.Ast.ListCat (span, cat)) syms
+            | nontermsOfDef (Parse.Ast.Coercions (span, ident, level)) syms =
+                let
+                  fun coerce 0 syms = nontermsOfCat (Parse.Ast.IdCat (span, ident)) syms
+                    | coerce level syms =
+                        coerce (level - 1) (nontermsOfCat (Parse.Ast.IdCat (span, ident ^ Int.toString level)) syms)
+                in
+                  coerce level syms
+                end
           and nontermsOfCat cat syms = 
                 let
                   val hand = catToHandle cat
@@ -312,6 +320,31 @@ structure Grammar :> GRAMMAR = struct
                         rulesOfDef consCase (rulesOfDef emptyCase rules)
                     | Parse.Ast.MNonempty _ =>
                         rulesOfDef consCase (rulesOfDef oneCase rules)
+                end
+            | rulesOfDef (Parse.Ast.Coercions (span, ident, level)) rules =
+                let
+                  val atomicRule = 
+                    Parse.Ast.Rule
+                      (span,
+                       Parse.Ast.Wild span, 
+                       Parse.Ast.IdCat (span, ident ^ Int.toString level),
+                       [Parse.Ast.Terminal (span, "("),
+                        Parse.Ast.NTerminal (span, Parse.Ast.IdCat (span, ident)),
+                        Parse.Ast.Terminal (span, ")")])
+                  fun levelToString 0 = ""
+                    | levelToString level = Int.toString level
+                  fun makeCoerceRule level =
+                        Parse.Ast.Rule
+                          (span,
+                           Parse.Ast.Wild span,
+                           Parse.Ast.IdCat (span, ident ^ levelToString (level - 1)),
+                           [Parse.Ast.NTerminal (span, Parse.Ast.IdCat (span, ident ^ levelToString level))])
+                  fun coerce 1 rules =
+                        rulesOfDef (makeCoerceRule 1) rules
+                    | coerce level rules =
+                        coerce (level - 1) (rulesOfDef (makeCoerceRule level) rules)
+                in
+                  coerce level (rulesOfDef atomicRule rules)
                 end
         in
           rulesOfGrammar ast []

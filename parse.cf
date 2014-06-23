@@ -17,6 +17,7 @@ token Ident of string;
 token SeparatorKw "separator";
 token TerminatorKw "terminator";
 token NonemptyKw "nonempty";
+token CoercionsKw "coercions";
 
 -- A Grammar is a sequence of definitions
 
@@ -56,6 +57,7 @@ ListOne  . Label ::= "(" ":" "[" "]" ")" ;
 -- Pragmas
 Separator.  Def ::= "separator" MinimumSize Cat String ;
 Terminator. Def ::= "terminator" MinimumSize Cat String ;
+Coercions.  Def ::= "coercions" Ident Integer ;
 
 -- List size condition
 MNonempty.  MinimumSize ::= "nonempty" ;
