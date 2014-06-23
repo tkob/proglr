@@ -881,6 +881,7 @@ structure CodeGenerator = struct
                 in
                   MLAst.AsisExp ("(" ^ head ^ "::" ^ tail ^ ")")
                 end
+            | Grammar.ListOne => MLAst.AsisExp ("[" ^ hd svalues ^ "]")
           val currentAst = MLAst.AppExp (MLAst.AsisExp (symToCategory lhs), svaluesAst)
         in
           ("st" ^ n ^ "r", [
