@@ -591,6 +591,7 @@ structure MLAst = struct
   and spec =
         ValSpec of valdesc
       | TypeSpec of typedesc
+      | EqTypeSpec of typedesc
   withtype
       datbind = ident * (ident * ty option) list
   and fvalbind = ident * (pat list * exp) list
@@ -734,6 +735,15 @@ structure MLAst = struct
       in
         (printTypeSpec "type" first;
         List.app (printTypeSpec "and") rest)
+      end
+    | printSpec outs indent (EqTypeSpec []) = ()
+    | printSpec outs indent (EqTypeSpec (first::rest)) =
+      let
+        fun printEqTypeSpec pre ty =
+          out outs indent (pre ^ " " ^ ty)
+      in
+        (printEqTypeSpec "eqtype" first;
+        List.app (printEqTypeSpec "and") rest)
       end
   fun printSigdec outs indent (Signature []) = ()
     | printSigdec outs indent (Signature (first::rest)) =
@@ -1049,9 +1059,9 @@ structure CodeGenerator = struct
       val lexSignature = MLAst.Signature [("Lex",
         MLAst.Sig [
           MLAst.TypeSpec ["strm"],
-          MLAst.TypeSpec ["pos"],
+          MLAst.EqTypeSpec ["pos"],
           MLAst.TypeSpec ["span = pos * pos"], (* dirty *)
-          MLAst.TypeSpec ["tok"],
+          MLAst.EqTypeSpec ["tok"],
           MLAst.ValSpec [("lex", MLAst.AsisType "AntlrStreamPos.sourcemap -> strm -> tok * span * strm")],
           MLAst.ValSpec [("getPos", MLAst.AsisType "strm -> pos")]])]
 
