@@ -1110,7 +1110,8 @@ structure CodeGenerator = struct
       val parseFunctor = MLAst.Functor [(
         "ParseFun",
         "Lex",
-        MLAst.SigId ("Lex", [("tok", MLAst.Tycon "Token.token")]),
+        MLAst.SigId ("Lex",
+          [("tok", MLAst.Tycon "Token.token"), ("pos", MLAst.Tycon "AntlrStreamPos.pos")]),
         parseStructure)]
     in
       MLAst.printStrdec outs 0 tokenStructure;
