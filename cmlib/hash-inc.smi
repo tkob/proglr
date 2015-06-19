@@ -1,0 +1,10 @@
+_require "basis.smi"
+_require "hash-inc.sig"
+
+structure JenkinsHash = struct
+  val hashInc : Word.word -> Word.word -> Word.word
+end
+
+structure MJHash = struct
+  val hashInc : Word.word -> Word.word -> Word.word
+end
