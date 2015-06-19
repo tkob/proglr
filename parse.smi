@@ -20,6 +20,10 @@ structure Token = struct
   | Char of char
   | String of string
   | Ident of string
+  | SeparatorKw
+  | TerminatorKw
+  | NonemptyKw
+  | CoercionsKw
 end
 
 functor ParseFun(Lex : sig
@@ -37,8 +41,6 @@ end where type tok = Token.token) = struct
       Keyword of Lex.span * string * string
     | AttrToken of Lex.span * string * string
     | NoAttrToken of Lex.span * string
-    and def =
-      Rule of Lex.span * label * cat * item list
     and item =
       Terminal of Lex.span * string
     | NTerminal of Lex.span * cat
@@ -51,6 +53,14 @@ end where type tok = Token.token) = struct
     | ListE of Lex.span
     | ListCons of Lex.span
     | ListOne of Lex.span
+    and def =
+      Rule of Lex.span * label * cat * item list
+    | Separator of Lex.span * minimumsize * cat * string
+    | Terminator of Lex.span * minimumsize * cat * string
+    | Coercions of Lex.span * string * int
+    and minimumsize =
+      MNonempty of Lex.span
+    | MEmpty of Lex.span
   end
   val parse : AntlrStreamPos.sourcemap -> Lex.strm -> Ast.grammar list
 end
