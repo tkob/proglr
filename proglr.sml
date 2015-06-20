@@ -122,7 +122,8 @@ structure Grammar :> GRAMMAR = struct
       in
         Word8Vector.foldl hash (Word.fromInt level) (Byte.stringToBytes ident)
       end
-    fun show (ident, 0) = ident
+    fun show (str, ~1) = str
+      | show (ident, 0) = ident
       | show (ident, level) = "[" ^ show (ident, level - 1) ^ "]"
   end
   structure SymbolHashTable = HashTable(Handle)
