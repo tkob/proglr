@@ -74,37 +74,47 @@ structure Intern :> INTERN = struct
 end
 
 signature GRAMMAR = sig
+  (* constructor is 'label' of LBNF; 'EInt' part of 'EInt. Exp ::= Integer' *)
   datatype constructor = Id of string | Wild  | ListE | ListCons | ListOne
   type rule
   type grammar
 
+  (* a symbol may be a nonterminal (Nonterm), a terminal bearing no value (UnitTerm)
+   * or a terminal bearing a value *)
   datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm | RealTerm
   eqtype symbol
 
+  (* constructor functions for GRAMMAR types *)
   val fromAst : Parse.Ast.grammar -> grammar
   val makeRule : constructor * symbol * symbol list -> rule
 
-  val rulesOf : grammar -> rule list
-
+  (* a rule consists of label(cons), value category(lhs),
+   * and production rules(rhs) *)
   val consOf : rule -> constructor
   val lhsOf : rule -> symbol
   val rhsOf : rule -> symbol list
 
+  (* a grammar consists of one start symbol, rules, terminal symbols and
+   * nonterminal symbols *)
   val startSymbolOf : grammar -> symbol
-
+  val rulesOf : grammar -> rule list
   val termsOf : grammar -> symbol list
   val nontermsOf : grammar -> symbol list
 
-  val showCons : constructor -> string
-  val showRule : rule -> string
-  val printGrammar : grammar -> unit
-
-  val showSymbol : symbol -> string
+  (* a symbol may be a terminal or a nonterminal *)
   val isTerm : symbol -> bool
   val kindOf : symbol -> kind
+  (* a symbol has level if it is nonterminal, e.g. Cat, [Cat], [[Cat]]... *)
   val levelOf : symbol -> int
   val identOfSymbol : symbol -> string
 
+  (* pretty printers *)
+  val showCons : constructor -> string
+  val showRule : rule -> string
+  val showSymbol : symbol -> string
+  val printGrammar : grammar -> unit
+
+  (* special symbols *)
   val S' : symbol
   val EOF : symbol
 end
