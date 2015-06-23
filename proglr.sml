@@ -7,6 +7,9 @@ structure Util = struct
   fun add (x, xs) = if mem x xs then xs else x::xs
   fun union [] ys = ys
     | union (x::xs) ys = union xs (add (x, ys))
+  fun remove (x, []) = []
+    | remove (x, y::ys) = if x = y then remove (x, ys) else y::(remove (x, ys))
+  fun minus (xs, ys) = List.foldr (fn (y, xs) => remove (y, xs)) xs ys
   
   fun dropWhile p [] = []
     | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
