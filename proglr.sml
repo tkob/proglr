@@ -172,8 +172,11 @@ structure Grammar :> GRAMMAR = struct
   fun rhsOf (_, _, rhs) = rhs
 
   fun fromAst ast =
+    (* Construct a grammar from an AST.
+     * A grammar consists of terms, nonterms, rules and a start symbol.
+     * Create them in order. *)
     let
-      val table = SymbolHashTable.table 256
+      (* utility functions *)
       fun catToHandle (Parse.Ast.IdCat (_, ident)) = (ident, 0)
         | catToHandle (Parse.Ast.ListCat (_, cat)) =
             let val (ident, level) = catToHandle cat in
@@ -186,6 +189,10 @@ structure Grammar :> GRAMMAR = struct
         | labelToCons (Parse.Ast.ListE _) = ListE
         | labelToCons (Parse.Ast.ListCons _) = ListCons
         | labelToCons (Parse.Ast.ListOne _) = ListOne
+      (* a hash table in which all terms and nonterms will be stored
+       * for checking duplicate *)
+      val table = SymbolHashTable.table 256
+      (* visit token definitions and collect terms *)
       val terms =
         let
           fun termsOfGrammar (Parse.Ast.Grammar (_, tokens, _)) terms =
@@ -200,6 +207,7 @@ structure Grammar :> GRAMMAR = struct
                   val (term, present) = SymbolHashTable.lookupOrInsert' table hand (fn () => symbol)
                   val literalHand = (literal, ~1)
                 in
+                  (* 'literal' form can be used as an 'alias' of token name *)
                   (SymbolHashTable.lookupOrInsert table literalHand (fn () => symbol);
                   if present then terms else term::terms)
                 end
@@ -229,9 +237,10 @@ structure Grammar :> GRAMMAR = struct
         in
           termsOfGrammar ast []
         end
+      (* visit rules and collect nonterms *)
       val nonterms =
         let
-          fun nontermsOfGrammar (Parse.Ast.Grammar (_, tokens, defs)) syms =
+          fun nontermsOfGrammar (Parse.Ast.Grammar (_, _, defs)) syms =
                 nontermsOfDefs defs syms
           and nontermsOfDefs [] syms = []
             | nontermsOfDefs (def::defs) syms =
@@ -261,10 +270,10 @@ structure Grammar :> GRAMMAR = struct
         in
           nontermsOfGrammar ast []
         end
-      (* val entries = SymbolHashTable.toList table
-      val _ = List.app (fn ((name, level),v) => print (name ^ ":" ^ Int.toString level ^ "\n")) entries *)
+      (* collect rules, expand macros if needed *)
       val rules =
         let
+          (* constructor functions for polymorphic list rules *)
           fun makeNilRule span cat =
             Parse.Ast.Rule
               (span, Parse.Ast.ListE span, Parse.Ast.ListCat (span, cat), [])
@@ -285,15 +294,13 @@ structure Grammar :> GRAMMAR = struct
                @ (if separator = "" then []
                   else [Parse.Ast.Terminal (span, separator)])
                @ [Parse.Ast.NTerminal (span, Parse.Ast.ListCat (span, cat))])
+          (* visitors *)
           fun rulesOfGrammar (Parse.Ast.Grammar (_, terminals, defs)) rules = rulesOfDefs defs rules
           and rulesOfDefs [] rules = []
             | rulesOfDefs (def::defs) rules =
                 rulesOfDef def (rulesOfDefs defs rules)
           and rulesOfDef (Parse.Ast.Rule (_, label, cat, items)) rules =
                 let
-                  fun toList [] = []
-                    | toList (item::items) = item::(toList items)
-                  val items' = toList items
                   val cons = labelToCons label
                   val lhs = SymbolHashTable.lookup table (catToHandle cat)
                             handle Absent => raise Fail "error while constructing a grammar from AST. (possible bug)"
@@ -304,11 +311,12 @@ structure Grammar :> GRAMMAR = struct
                       SymbolHashTable.lookup table h
                       handle Absent => raise Fail ("symbol " ^ (Handle.show h) ^ " not defined.")
                     end
-                  val rhs = map l items'
+                  val rhs = map l items
                 in
                   (cons, lhs, rhs)::rules
                 end
             | rulesOfDef (Parse.Ast.Separator (span, minimumsize, cat, separator)) rules =
+                (* expand separator macro *)
                 let
                   val emptyCase = makeNilRule span cat
                   val oneCase = makeOneRule span cat ""
@@ -321,6 +329,7 @@ structure Grammar :> GRAMMAR = struct
                         rulesOfDef consCase (rulesOfDef oneCase rules)
                 end
             | rulesOfDef (Parse.Ast.Terminator (span, minimumsize, cat, terminator)) rules =
+                (* expand terminator macro *)
                 let
                   val emptyCase = makeNilRule span cat
                   val oneCase = makeOneRule span cat terminator
@@ -333,6 +342,7 @@ structure Grammar :> GRAMMAR = struct
                         rulesOfDef consCase (rulesOfDef oneCase rules)
                 end
             | rulesOfDef (Parse.Ast.Coercions (span, ident, level)) rules =
+                (* expand coercions macro *)
                 let
                   val atomicRule = 
                     Parse.Ast.Rule
@@ -360,6 +370,7 @@ structure Grammar :> GRAMMAR = struct
         in
           rulesOfGrammar ast []
         end
+      (* the start symbols is lhs of the first rule *)
       val start = lhsOf (hd rules)
     in
       {terms = terms, nonterms = nonterms, rules = rules, start = start}
