@@ -10,6 +10,7 @@ structure Util = struct
   fun remove (x, []) = []
     | remove (x, y::ys) = if x = y then remove (x, ys) else y::(remove (x, ys))
   fun minus (xs, ys) = List.foldr (fn (y, xs) => remove (y, xs)) xs ys
+  fun uniq xs = List.foldr add [] xs
   
   fun dropWhile p [] = []
     | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
