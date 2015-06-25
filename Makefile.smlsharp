@@ -19,8 +19,35 @@ SRCS = \
 	cmlib/hash-table.sml \
 	parse.sml \
 	scan.ulex.sml \
+	resource.sml \
 	proglr.sml \
 	boot.sml
+
+RESOURCES = cmlib/hash-table.smi \
+            cmlib/idict.sig \
+            cmlib/hash-inc.smi \
+            cmlib/hashable.sig \
+            cmlib/LICENSE \
+            cmlib/hash-table.sml \
+            cmlib/hash-table.sig \
+            cmlib/hash-inc.sig \
+            cmlib/AUTHORS \
+            cmlib/hash-inc.sml \
+            smlnj-lib/PORTING \
+            smlnj-lib/Util/utf8-sig.sml \
+            smlnj-lib/Util/utf8.mlb \
+            smlnj-lib/Util/utf8.sml \
+            smlnj-lib/Util/utf8-sig.smi \
+            smlnj-lib/Util/utf8.smi \
+            smlnj-lib/Util/README \
+            smlnj-lib/Util/TODO \
+            smlnj-lib/LICENSE \
+            smlnj-lib/README \
+            smlnj-lib/CHANGES \
+            smlnj-lib/TODO
+
+MKRESOURCE = mkresource
+MKRESOURCE_SRCS = mkresource.sml
 
 OBJS = $(SRCS:.sml=.o)
 
@@ -32,13 +59,19 @@ $(EXEC): boot.smi $(EXEC).smi $(OBJS)
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
+$(MKRESOURCE): mkresource.o mkresource-boot.o
+	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ mkresource-boot.smi
+
+resource.sml: $(MKRESOURCE)
+	$(MKRESOURCE) Resource $(RESOURCES) > resource.sml
+
 %.o: %.sml
 	$(SMLSHARP) $(SMLSHARPFLAGS) -c $<
 
-depend: 
-	$(SMLSHARP) -MM $(SRCS) > $(DEPEND)
+depend:
+	$(SMLSHARP) -MM $(SRCS) $(MKRESOURCE_SRCS) > $(DEPEND)
 
 include $(DEPEND)
 
 clean:
-	rm -f $(OBJS) $(EXEC) scan.ulex.sml
+	rm -f $(OBJS) $(EXEC) $(MKRESOURCE)

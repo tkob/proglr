@@ -18,5 +18,6 @@ cmlib/hash-table.sml
 
 parse.sml
 scan.ulex.sml
+resource.sml
 proglr.sml
 boot.sml

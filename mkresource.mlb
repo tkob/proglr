@@ -1,0 +1,4 @@
+$(SML_LIB)/basis/basis.mlb
+
+mkresource.sml
+mkresource-boot.sml
