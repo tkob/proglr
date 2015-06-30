@@ -393,10 +393,17 @@ structure Grammar :> GRAMMAR = struct
     showCons con ^ ". "
       ^ showSymbol lhs ^ " ::= "
       ^ String.concatWith " " (List.map showSymbol rhs) ^ ";"
-  fun printGrammar out ({rules,...} : grammar) =
+  fun printGrammar out ({terms, nonterms, rules, start} : grammar) =
     let
-      fun printRule rule = TextIO.output (out, (showRule rule ^ "\n"))
+      fun println s =
+        (TextIO.output (out, s); TextIO.output (out, "\n"); TextIO.flushOut out)
+      val printRule = println o showRule
     in
+      println ("terms = {" ^ String.concatWith ", " (map showSymbol terms) ^
+      "}");
+      println ("nonterms = {" ^ String.concatWith ", " (map showSymbol nonterms)
+      ^ "}");
+      println ("start = " ^ (showSymbol start));
       List.app printRule rules
     end
 end
