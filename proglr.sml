@@ -116,7 +116,7 @@ signature GRAMMAR = sig
   val showCons : constructor -> string
   val showRule : rule -> string
   val showSymbol : symbol -> string
-  val printGrammar : grammar -> unit
+  val printGrammar : TextIO.outstream -> grammar -> unit
 
   (* special symbols *)
   val S' : symbol
@@ -393,9 +393,9 @@ structure Grammar :> GRAMMAR = struct
     showCons con ^ ". "
       ^ showSymbol lhs ^ " ::= "
       ^ String.concatWith " " (List.map showSymbol rhs) ^ ";"
-  fun printGrammar ({rules,...} : grammar) =
+  fun printGrammar out ({rules,...} : grammar) =
     let
-      fun printRule rule = print (showRule rule ^ "\n")
+      fun printRule rule = TextIO.output (out, (showRule rule ^ "\n"))
     in
       List.app printRule rules
     end
@@ -1154,15 +1154,17 @@ structure Main = struct
         case inFileName of 
           NONE => AntlrStreamPos.mkSourcemap ()
         | SOME name => AntlrStreamPos.mkSourcemap' name
-(*    in
-      Parse.parse sourcemap strm *)
       val ast = Parse.parse sourcemap strm
       val grammar =
         case ast of
           [ast] => Grammar.fromAst ast
         | _ => raise Fail "parsing failed"
     in
-      (* Grammar.printGrammar grammar *)
+      (* Print the grammar as comment *)
+      TextIO.output (outs, "(*\n");
+      Grammar.printGrammar outs grammar;
+      TextIO.output (outs, "*)\n");
+      (* and then the structure *)
       CodeGenerator.generateParser outs grammar
     end
 end
