@@ -518,7 +518,7 @@ signature AUTOMATON = sig
   val stateOf : state_number -> automaton -> state
   val nextStatesOf : state_number -> automaton -> (alphabet * state_number) list
   val numbersAndStates : automaton -> (state_number * state) list
-  val printAutomaton : automaton -> unit
+  val printAutomaton : TextIO.outstream -> automaton -> unit
 end
 
 structure Automaton :> AUTOMATON where
@@ -570,25 +570,26 @@ structure Automaton :> AUTOMATON where
   fun nextStatesOf state (_, transitions) =
     List.map (fn (_, symbol, next) => (symbol, next)) (List.filter (fn (s', _, _) => state = s') transitions)
 
-  fun printStates states =
+  fun printStates outs states =
     let
       fun showState state = String.concatWith " | " (List.map LrItem.show state)
-      fun printState (n, state) = print (Int.toString n ^ ": " ^ showState state ^ "\n")
+      fun printState (n, state) =
+        TextIO.output (outs, (Int.toString n ^ ": " ^ showState state ^ "\n"))
     in
       List.app printState (Intern.toList states)
     end
   
-  fun printTransitions transitions =
+  fun printTransitions outs transitions =
     let
       fun printTransition (s1, symbol, s2) =
-        print (Int.toString s1 ^ " -> " ^ Grammar.showSymbol symbol ^ " -> " ^ Int.toString s2 ^ "\n")
+        TextIO.output (outs, (Int.toString s1 ^ " -> " ^ Grammar.showSymbol symbol ^ " -> " ^ Int.toString s2 ^ "\n"))
     in
       List.app printTransition transitions
     end
 
-  fun printAutomaton (states, transitions) =
-    (printStates states;
-    printTransitions transitions)
+  fun printAutomaton outs (states, transitions) =
+    (printStates outs states;
+    printTransitions outs transitions)
 end
 
 structure MLAst = struct
@@ -1147,6 +1148,10 @@ structure CodeGenerator = struct
           [("tok", MLAst.Tycon "Token.token"), ("pos", MLAst.Tycon "AntlrStreamPos.pos")]),
         parseStructure)]
     in
+      (* Print the automaton as comment *)
+      TextIO.output (outs, "(*\n");
+      Automaton.printAutomaton outs automaton;
+      TextIO.output (outs, "*)\n");
       MLAst.printStrdec outs 0 tokenStructure;
       MLAst.printSigdec outs 0 lexSignature;
       MLAst.printFundec outs 0 parseFunctor
