@@ -443,14 +443,14 @@ structure LrItem :> LRITEM = struct
             if Util.mem lrItem expanded then loop lrItems expanded
             else
               case lrItem of
-                (* if the dot is not in fromt of a non-terminal *)
+                (* if the dot is not in front of a non-terminal *)
                 (_, _, _, [])     => loop lrItems (lrItem::expanded)
               | (_, _, _, sym::_) =>
                   if Grammar.isTerm sym then
-                    (* if the dot is not in fromt of a non-terminal *)
+                    (* if the dot is not in front of a non-terminal *)
                     loop lrItems (lrItem::expanded)
                   else
-                    (* if the dot is in fromt of a non-terminal *)
+                    (* if the dot is in front of a non-terminal *)
                     let
                      (* all grammar rules of the form sym->... *)
                       val rules = List.filter (fn rule => Grammar.lhsOf rule = sym) rules
