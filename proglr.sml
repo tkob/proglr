@@ -1047,14 +1047,13 @@ structure CodeGenerator = struct
       (if shift = [] then [] else [st]) @ map stReduce reduce
     end
 
-  fun generateParser outs grammar =
+  fun generateParser outs grammar automaton =
     let
       val tokens = Grammar.EOF :: Grammar.termsOf grammar
       val nonterms = Grammar.nontermsOf grammar
       val rules = Grammar.rulesOf grammar
       val startSymbol = Grammar.startSymbolOf grammar
       val categories = tokens @ nonterms
-      val automaton = Automaton.makeAutomaton grammar
       val numbersAndStates = Automaton.numbersAndStates automaton
       val stateNumbers = List.map #1 numbersAndStates
     
@@ -1158,10 +1157,6 @@ structure CodeGenerator = struct
           [("tok", MLAst.Tycon "Token.token"), ("pos", MLAst.Tycon "AntlrStreamPos.pos")]),
         parseStructure)]
     in
-      (* Print the automaton as comment *)
-      TextIO.output (outs, "(*\n");
-      Automaton.printAutomaton outs automaton;
-      TextIO.output (outs, "*)\n");
       MLAst.printStrdec outs 0 tokenStructure;
       MLAst.printSigdec outs 0 lexSignature;
       MLAst.printFundec outs 0 parseFunctor
@@ -1209,13 +1204,18 @@ structure Main = struct
         case ast of
           [ast] => Grammar.fromAst ast
         | _ => raise Fail "parsing failed"
+      val automaton = Automaton.makeAutomaton grammar
     in
       (* Print the grammar as comment *)
       TextIO.output (outs, "(*\n");
       Grammar.printGrammar outs grammar;
       TextIO.output (outs, "*)\n");
+      (* Print the automaton as comment *)
+      TextIO.output (outs, "(*\n");
+      Automaton.printAutomaton outs automaton;
+      TextIO.output (outs, "*)\n");
       (* and then the structure *)
-      CodeGenerator.generateParser outs grammar
+      CodeGenerator.generateParser outs grammar automaton
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
