@@ -1176,7 +1176,13 @@ structure Main = struct
         case inFileName of 
           NONE => AntlrStreamPos.mkSourcemap ()
         | SOME name => AntlrStreamPos.mkSourcemap' name
-      val ast = Parse.parse sourcemap strm
+      val ast = Parse.parse sourcemap strm handle Fail s =>
+        let
+          val pos = Lexer.getPos strm
+          val str = AntlrStreamPos.toString sourcemap pos
+        in
+          raise Fail ("Parsing failed at " ^ str ^ ", caused by \"" ^ s ^ "\"")
+        end
       val grammar =
         case ast of
           [ast] => Grammar.fromAst ast
@@ -1193,3 +1199,4 @@ end
 
 fun main () =
   Main.main TextIO.stdIn NONE TextIO.stdOut
+  handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
