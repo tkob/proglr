@@ -23,49 +23,6 @@ SRCS = \
 	proglr.sml \
 	boot.sml
 
-RESOURCES = cmlib/hash-table.smi \
-            cmlib/idict.sig \
-            cmlib/hash-inc.smi \
-            cmlib/hashable.sig \
-            cmlib/LICENSE \
-            cmlib/hash-table.sml \
-            cmlib/hash-table.sig \
-            cmlib/hash-inc.sig \
-            cmlib/AUTHORS \
-            cmlib/hash-inc.sml \
-            smlnj-lib/PORTING \
-            smlnj-lib/Util/utf8-sig.sml \
-            smlnj-lib/Util/utf8.mlb \
-            smlnj-lib/Util/utf8.sml \
-            smlnj-lib/Util/utf8-sig.smi \
-            smlnj-lib/Util/utf8.smi \
-            smlnj-lib/Util/README \
-            smlnj-lib/Util/TODO \
-            smlnj-lib/LICENSE \
-            smlnj-lib/README \
-            smlnj-lib/CHANGES \
-            smlnj-lib/TODO \
-            ml-lpt/lib/stream-pos.sml \
-            ml-lpt/lib/antlr-tokens-sig.smi \
-            ml-lpt/lib/ebnf.smi \
-            ml-lpt/lib/err-handler.sml \
-            ml-lpt/lib/wrapped-strm.sml \
-            ml-lpt/lib/err-handler.smi \
-            ml-lpt/lib/wrapped-strm.smi \
-            ml-lpt/lib/ulex-buffer.sml \
-            ml-lpt/lib/repair.smi \
-            ml-lpt/lib/ulex-buffer.smi \
-            ml-lpt/lib/antlr-lexer-sig.smi \
-            ml-lpt/lib/antlr-tokens-sig.sml \
-            ml-lpt/lib/stream-pos.smi \
-            ml-lpt/lib/mllpt-lib.mlb \
-            ml-lpt/lib/antlr-lexer-sig.sml \
-            ml-lpt/lib/ebnf.sml \
-            ml-lpt/lib/repair.sml \
-            ml-lpt/lib/ml-lpt-lib.cm \
-            ml-lpt/lib/ml-lpt-lib.mlb \
-            ml-lpt/lib/ml-lpt-lib.smi
-
 MKRESOURCE = mkresource
 MKRESOURCE_SRCS = mkresource.sml
 
@@ -82,8 +39,7 @@ scan.ulex.sml: scan.ulex
 $(MKRESOURCE): mkresource.o mkresource-boot.o
 	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ mkresource-boot.smi
 
-resource.sml: $(MKRESOURCE)
-	(cd resources; ../$(MKRESOURCE) Resource $(RESOURCES) > ../resource.sml)
+include Makefile.mkresource
 
 %.o: %.sml
 	$(SMLSHARP) $(SMLSHARPFLAGS) -c $<

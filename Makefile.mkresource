@@ -1,0 +1,46 @@
+RESOURCES_DIR = resources
+RESOURCES = $(RESOURCES_DIR)/cmlib/hash-table.smi \
+            $(RESOURCES_DIR)/cmlib/idict.sig \
+            $(RESOURCES_DIR)/cmlib/hash-inc.smi \
+            $(RESOURCES_DIR)/cmlib/hashable.sig \
+            $(RESOURCES_DIR)/cmlib/LICENSE \
+            $(RESOURCES_DIR)/cmlib/hash-table.sml \
+            $(RESOURCES_DIR)/cmlib/hash-table.sig \
+            $(RESOURCES_DIR)/cmlib/hash-inc.sig \
+            $(RESOURCES_DIR)/cmlib/AUTHORS \
+            $(RESOURCES_DIR)/cmlib/hash-inc.sml \
+            $(RESOURCES_DIR)/smlnj-lib/PORTING \
+            $(RESOURCES_DIR)/smlnj-lib/Util/utf8-sig.sml \
+            $(RESOURCES_DIR)/smlnj-lib/Util/utf8.mlb \
+            $(RESOURCES_DIR)/smlnj-lib/Util/utf8.sml \
+            $(RESOURCES_DIR)/smlnj-lib/Util/utf8-sig.smi \
+            $(RESOURCES_DIR)/smlnj-lib/Util/utf8.smi \
+            $(RESOURCES_DIR)/smlnj-lib/Util/README \
+            $(RESOURCES_DIR)/smlnj-lib/Util/TODO \
+            $(RESOURCES_DIR)/smlnj-lib/LICENSE \
+            $(RESOURCES_DIR)/smlnj-lib/README \
+            $(RESOURCES_DIR)/smlnj-lib/CHANGES \
+            $(RESOURCES_DIR)/smlnj-lib/TODO \
+            $(RESOURCES_DIR)/ml-lpt/lib/stream-pos.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/antlr-tokens-sig.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/ebnf.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/err-handler.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/wrapped-strm.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/err-handler.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/wrapped-strm.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/ulex-buffer.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/repair.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/ulex-buffer.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/antlr-lexer-sig.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/antlr-tokens-sig.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/stream-pos.smi \
+            $(RESOURCES_DIR)/ml-lpt/lib/mllpt-lib.mlb \
+            $(RESOURCES_DIR)/ml-lpt/lib/antlr-lexer-sig.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/ebnf.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/repair.sml \
+            $(RESOURCES_DIR)/ml-lpt/lib/ml-lpt-lib.cm \
+            $(RESOURCES_DIR)/ml-lpt/lib/ml-lpt-lib.mlb \
+            $(RESOURCES_DIR)/ml-lpt/lib/ml-lpt-lib.smi
+
+resource.sml: $(MKRESOURCE) $(RESOURCES)
+	$(MKRESOURCE) Resource $(RESOURCES_DIR) $(RESOURCES) > resource.sml
