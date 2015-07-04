@@ -83,7 +83,7 @@ $(MKRESOURCE): mkresource.o mkresource-boot.o
 	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ mkresource-boot.smi
 
 resource.sml: $(MKRESOURCE)
-	$(MKRESOURCE) Resource $(RESOURCES) > resource.sml
+	(cd resources; ../$(MKRESOURCE) Resource $(RESOURCES) > ../resource.sml)
 
 %.o: %.sml
 	$(SMLSHARP) $(SMLSHARPFLAGS) -c $<

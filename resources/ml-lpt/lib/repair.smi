@@ -1,0 +1,22 @@
+_require "basis.smi"
+_require "stream-pos.smi"
+
+structure AntlrRepair =
+  struct
+
+    datatype 'tok repair_action
+      = Insert of 'tok list
+      | Delete of 'tok list
+      | Subst of {
+          old : 'tok list, 
+          new : 'tok list
+        }
+      | FailureAt of 'tok
+
+    type 'tok repair = AntlrStreamPos.pos * 'tok repair_action
+
+    val actionToString : ('tok -> string) -> 'tok repair_action -> string
+    val repairToString : ('tok -> string) -> AntlrStreamPos.sourcemap -> 'tok repair -> string
+
+end
+

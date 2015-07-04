@@ -75,7 +75,7 @@ mkresource: mkresource.sml
 	polyc -o mkresource mkresource.sml
 
 resource.sml: mkresource
-	./mkresource Resource $(RESOURCES) >  resource.sml
+	(cd resources; ../mkresource Resource $(RESOURCES) > ../resource.sml)
 
 clean:
 	rm -f proglr

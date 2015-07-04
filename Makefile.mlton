@@ -53,7 +53,7 @@ mkresource: mkresource.sml mkresource-boot.sml
 	mlton -output mkresource mkresource.mlb
 
 resource.sml: mkresource
-	./mkresource Resource $(RESOURCES) >  resource.sml
+	(cd resources; ../mkresource Resource $(RESOURCES) > ../resource.sml)
 
 clean:
 	rm -f proglr
