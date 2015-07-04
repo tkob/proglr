@@ -24,9 +24,9 @@ SRCS = \
 	boot.sml
 
 MKRESOURCE = mkresource
-MKRESOURCE_SRCS = mkresource.sml
+MKRESOURCE_SRCS = mkresource.sml mkresource-boot.sml
 
-OBJS = $(SRCS:.sml=.o)
+OBJS = $(SRCS:.sml=.o) $(MKRESOURCE_SRCS:.sml=.o)
 
 all: $(EXEC)
 
