@@ -156,7 +156,8 @@ structure Grammar :> GRAMMAR = struct
          start : symbol}
 
   fun isTerm (_, Nonterm) = false
-    | isTerm (_, _) = true
+    | isTerm ((_, 0), _) = true
+    | isTerm ((_, _), _) = false
   fun showSymbol ((ident, 0), _) = ident
     | showSymbol ((ident, level), kind) = "[" ^ showSymbol ((ident, level - 1), kind) ^ "]"
   fun kindOf (_, kind) = kind
@@ -265,8 +266,10 @@ structure Grammar :> GRAMMAR = struct
                 end
           and nontermsOfCat cat syms = 
                 let
-                  val hand = catToHandle cat
-                  fun symf () = (hand, Nonterm)
+                  val hand as (ident, level) = catToHandle cat
+                  fun symf ()= case SymbolHashTable.find table (ident, 0) of
+                                  SOME (_, kind) => (hand, kind)
+                                | NONE => (hand, Nonterm)
                   val (sym, present) = SymbolHashTable.lookupOrInsert' table hand symf
                 in
                   if present then syms else sym::syms
@@ -814,14 +817,15 @@ structure CodeGenerator = struct
     let
       fun suffix 0 = ""
         | suffix n = suffix (n - 1) ^ " list"
+      val level = Grammar.levelOf sym
     in
       case Grammar.kindOf sym of
         Grammar.UnitTerm => NONE
-      | Grammar.IntTerm  => SOME (MLAst.Tycon "int")
-      | Grammar.StrTerm  => SOME (MLAst.Tycon "string")
-      | Grammar.CharTerm => SOME (MLAst.Tycon "char")
-      | Grammar.RealTerm => SOME (MLAst.Tycon "real")
-      | Grammar.Nonterm  => SOME (MLAst.Tycon (prefix ^ (nt2dt sym) ^ suffix (Grammar.levelOf sym)))
+      | Grammar.IntTerm  => SOME (MLAst.Tycon ("int" ^ suffix level))
+      | Grammar.StrTerm  => SOME (MLAst.Tycon ("string" ^ suffix level))
+      | Grammar.CharTerm => SOME (MLAst.Tycon ("char" ^ suffix level))
+      | Grammar.RealTerm => SOME (MLAst.Tycon ("real" ^ suffix level))
+      | Grammar.Nonterm  => SOME (MLAst.Tycon (prefix ^ (nt2dt sym) ^ suffix level))
     end
 
   fun symToCategory sym =
@@ -847,18 +851,20 @@ structure CodeGenerator = struct
   fun makeShowFun tokens =
     let
       fun makePat symbol = 
-        case Grammar.kindOf symbol of
-          Grammar.Nonterm =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
-        | Grammar.UnitTerm => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
-        | _ =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+        case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
+          (Grammar.Nonterm, _) =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
+        | (Grammar.UnitTerm, _) => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
+        | (_, 0) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+        | (_, _) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
       fun makeBody symbol =
-        case Grammar.kindOf symbol of
-          Grammar.UnitTerm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
-        | Grammar.IntTerm  => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Int.toString a ^ \")\"")
-        | Grammar.StrTerm  => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ a ^ \")\"")
-        | Grammar.CharTerm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Char.toString a ^ \")\"")
-        | Grammar.RealTerm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Real.toString a ^ \")\"")
-        | Grammar.Nonterm => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
+        case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
+          (Grammar.UnitTerm, _) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
+        | (Grammar.IntTerm,  0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Int.toString a ^ \")\"")
+        | (Grammar.StrTerm,  0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ a ^ \")\"")
+        | (Grammar.CharTerm, 0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Char.toString a ^ \")\"")
+        | (Grammar.RealTerm, 0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Real.toString a ^ \")\"")
+        | (Grammar.Nonterm,  _) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
+        | (_, _)                => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
       val patExps = List.map (fn token => ([makePat token], makeBody token)) tokens
     in
       MLAst.Fun [("show", patExps)]
@@ -1061,7 +1067,11 @@ structure CodeGenerator = struct
            MLAst.Dec tokenShowFun])]
     
       (* Ast *)
-      val idents = List.foldr Util.add [] (map (Util.chopDigit o Grammar.identOfSymbol) nonterms)
+      val nontermIdents = map (Util.chopDigit o Grammar.identOfSymbol) nonterms
+      val termIdents = map (Util.chopDigit o Grammar.identOfSymbol) tokens
+      (* idents are the datatypes to be defined.
+         term identifiers should be removed *)
+      val idents = Util.uniq (Util.minus (nontermIdents, termIdents))
       val astDatatype = makeAstDatatype idents rules
       val astStructure =
         MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
