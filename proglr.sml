@@ -1163,6 +1163,50 @@ structure CodeGenerator = struct
     end
 end
 
+structure ResourceGen = struct
+  fun dirExists path =
+    let
+      val dir = OS.FileSys.openDir path 
+    in
+      OS.FileSys.closeDir dir;
+      true
+    end
+    handle OS.SysErr _ => false
+  fun mkDirP dir =
+    let
+      val canonical = OS.Path.mkCanonical dir
+      val {arcs, isAbs, vol} = OS.Path.fromString canonical
+      val parent = if isAbs then "/" else "."
+      fun concatAndMake (t, path) =
+        let val newPath = OS.Path.concat (path, t) in
+          if dirExists newPath then ()
+          else OS.FileSys.mkDir newPath;
+          newPath
+        end
+    in
+      ignore (List.foldl concatAndMake parent arcs)
+    end
+  fun generateResources sources =
+    let
+      fun emitResource ("", _) = ()
+        | emitResource (path, content) =
+        let
+          val {dir, file} = OS.Path.splitDirFile path
+        in
+          mkDirP dir;
+          let
+            val outs = BinIO.openOut path
+            val content = Byte.stringToBytes content
+          in
+            BinIO.output (outs, content);
+            BinIO.closeOut outs
+          end
+        end
+    in
+      List.app emitResource Resource.resources
+    end
+end
+
 structure Args = struct
   type t = {
     makefile : bool,
@@ -1226,7 +1270,7 @@ fun main () =
     fun replaceExt (path, newExt) =
       let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
   in
-    if makefile = true then () else ();
+    if makefile = true then ResourceGen.generateResources sources else ();
     case sources of
          [] => Main.generate TextIO.stdIn NONE TextIO.stdOut
        | sources =>
