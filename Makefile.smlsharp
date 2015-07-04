@@ -44,7 +44,27 @@ RESOURCES = cmlib/hash-table.smi \
             smlnj-lib/LICENSE \
             smlnj-lib/README \
             smlnj-lib/CHANGES \
-            smlnj-lib/TODO
+            smlnj-lib/TODO \
+            ml-lpt/lib/stream-pos.sml \
+            ml-lpt/lib/antlr-tokens-sig.smi \
+            ml-lpt/lib/ebnf.smi \
+            ml-lpt/lib/err-handler.sml \
+            ml-lpt/lib/wrapped-strm.sml \
+            ml-lpt/lib/err-handler.smi \
+            ml-lpt/lib/wrapped-strm.smi \
+            ml-lpt/lib/ulex-buffer.sml \
+            ml-lpt/lib/repair.smi \
+            ml-lpt/lib/ulex-buffer.smi \
+            ml-lpt/lib/antlr-lexer-sig.smi \
+            ml-lpt/lib/antlr-tokens-sig.sml \
+            ml-lpt/lib/stream-pos.smi \
+            ml-lpt/lib/mllpt-lib.mlb \
+            ml-lpt/lib/antlr-lexer-sig.sml \
+            ml-lpt/lib/ebnf.sml \
+            ml-lpt/lib/repair.sml \
+            ml-lpt/lib/ml-lpt-lib.cm \
+            ml-lpt/lib/ml-lpt-lib.mlb \
+            ml-lpt/lib/ml-lpt-lib.smi
 
 MKRESOURCE = mkresource
 MKRESOURCE_SRCS = mkresource.sml
