@@ -1168,8 +1168,30 @@ structure CodeGenerator = struct
     end
 end
 
+structure Args = struct
+  type t = {
+    makefile : bool,
+    dot : bool,
+    sources : string list}
+
+  val default = {
+    makefile = false,
+    dot = true,
+    sources = []}
+
+  fun parse' (v, []) = v
+    | parse' ({makefile, dot, sources}, "-m"::args) =
+        parse' ({makefile = true, dot = dot, sources = sources}, args)
+    | parse' ({makefile, dot, sources}, "--dot"::args) =
+        parse' ({makefile = makefile, dot = true, sources = sources}, args)
+    | parse' ({makefile, dot, sources}, args) =
+        {makefile = makefile, dot = dot, sources = args}
+
+  fun parse args = parse' (default, args)
+end
+
 structure Main = struct
-  fun main ins inFileName outs =
+  fun generate ins inFileName outs =
     let
       val strm = Lexer.streamifyInstream ins
       val sourcemap =
@@ -1195,8 +1217,29 @@ structure Main = struct
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar
     end
+    handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
 
 fun main () =
-  Main.main TextIO.stdIn NONE TextIO.stdOut
+  let
+    val {makefile, dot, sources} = Args.parse (CommandLine.arguments ())
+    fun replaceExt (path, newExt) =
+      let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
+  in
+    if makefile = true then () else ();
+    case sources of
+         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut
+       | sources =>
+           let
+             fun generate fileName =
+               let
+                 val ins = TextIO.openIn fileName
+                 val outs = TextIO.openOut (replaceExt (fileName, "sml"))
+               in
+                 Main.generate ins (SOME fileName) outs
+               end
+           in
+             List.app generate sources
+           end
+  end
   handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
