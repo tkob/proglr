@@ -20,18 +20,24 @@ ml-lpt/lib/wrapped-strm.o: ml-lpt/lib/wrapped-strm.sml \
  ml-lpt/lib/wrapped-strm.smi ml-lpt/lib/antlr-tokens-sig.sml \
  ml-lpt/lib/antlr-lexer-sig.sml ml-lpt/lib/stream-pos.smi \
  ml-lpt/lib/repair.smi ml-lpt/lib/wrapped-strm.smi
-/home/ether/cmlib/hash-inc.o: /home/ether/cmlib/hash-inc.sig
-/home/ether/cmlib/hash-inc.o: /home/ether/cmlib/hash-inc.sml \
- /home/ether/cmlib/hash-inc.smi /home/ether/cmlib/hash-inc.sig \
- /home/ether/cmlib/hash-inc.smi
-/home/ether/cmlib/idict.o: /home/ether/cmlib/idict.sig
-/home/ether/cmlib/hashable.o: /home/ether/cmlib/hashable.sig
-/home/ether/cmlib/hash-table.o: /home/ether/cmlib/hash-table.sig
-/home/ether/cmlib/hash-table.o: /home/ether/cmlib/hash-table.sml \
- /home/ether/cmlib/hash-table.smi /home/ether/cmlib/hash-inc.sig \
- /home/ether/cmlib/idict.sig /home/ether/cmlib/hashable.sig \
- /home/ether/cmlib/hash-table.sig /home/ether/cmlib/hash-table.smi
-parse.o: parse.sml parse.smi parse.smi
-scan.ulex.o: scan.ulex.sml
-mlglr.o: mlglr.sml mlglr.smi mlglr.smi
-boot.o: boot.sml
+cmlib/hash-inc.o: cmlib/hash-inc.sml cmlib/hash-inc.smi cmlib/hash-inc.sig \
+ cmlib/hash-inc.smi
+cmlib/hash-table.o: cmlib/hash-table.sml cmlib/hash-table.smi cmlib/idict.sig \
+ cmlib/hashable.sig cmlib/hash-table.sig cmlib/hash-table.smi
+parse.o: parse.sml parse.smi ml-lpt/lib/stream-pos.smi parse.smi
+scan.ulex.o: scan.ulex.sml scan.ulex.smi smlnj-lib/Util/utf8-sig.sml \
+ smlnj-lib/Util/utf8.smi ml-lpt/lib/stream-pos.smi ml-lpt/lib/ulex-buffer.smi \
+ parse.smi scan.ulex.smi
+resource.o: resource.sml
+proglr.o: proglr.sml proglr.smi smlnj-lib/Util/utf8-sig.sml \
+ smlnj-lib/Util/utf8.smi ml-lpt/lib/stream-pos.smi ml-lpt/lib/ulex-buffer.smi \
+ parse.smi scan.ulex.smi cmlib/hashable.sig cmlib/hash-inc.sig \
+ cmlib/hash-inc.smi cmlib/idict.sig cmlib/hash-table.sig cmlib/hash-table.smi \
+ proglr.smi
+boot.o: boot.sml boot.smi smlnj-lib/Util/utf8-sig.sml smlnj-lib/Util/utf8.smi \
+ ml-lpt/lib/stream-pos.smi ml-lpt/lib/ulex-buffer.smi parse.smi scan.ulex.smi \
+ cmlib/hashable.sig cmlib/hash-inc.sig cmlib/hash-inc.smi cmlib/idict.sig \
+ cmlib/hash-table.sig cmlib/hash-table.smi proglr.smi boot.smi
+mkresource.o: mkresource.sml mkresource.smi mkresource.smi
+mkresource-boot.o: mkresource-boot.sml mkresource-boot.smi mkresource.smi \
+ mkresource-boot.smi
