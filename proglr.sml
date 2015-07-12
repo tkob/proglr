@@ -1257,6 +1257,26 @@ structure ResourceGen = struct
     in
       List.app emitResource Resource.resources
     end
+
+  fun expandResources tokens =
+        let
+          val resources =
+                ["boot.sml.m4", "main.mlb.m4", "main.sml.m4", "scan.ulex.m4"]
+          fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
+                SOME "-DPROGLR_USE_INTEGER"
+            | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
+                SOME "-DPROGLR_USE_DOUBLE"
+            | tokenToDef (Parse.Ast.AttrToken (_, "Char", "char")) =
+                SOME "-DPROGLR_USE_CHAR"
+            | tokenToDef (Parse.Ast.AttrToken (_, "String", "string")) =
+                SOME "-DPROGLR_USE_STRING"
+            | tokenToDef (Parse.Ast.AttrToken (_, "Ident", "string")) =
+                SOME "-DPROGLR_USE_IDENT"
+            | tokenToDef _ = NONE
+          val defs = List.mapPartial tokenToDef tokens
+        in
+          List.app (fn r => expand defs r (OS.Path.base r)) resources
+        end
 end
 
 structure Args = struct
@@ -1289,18 +1309,17 @@ structure Main = struct
             case inFileName of
               NONE => AntlrStreamPos.mkSourcemap ()
             | SOME name => AntlrStreamPos.mkSourcemap' name
-      val ast = Parse.parse sourcemap strm handle Fail s =>
+      val asts = Parse.parse sourcemap strm handle Fail s =>
             let
               val pos = Lexer.getPos strm
               val str = AntlrStreamPos.toString sourcemap pos
             in
               raise Fail ("Parsing failed at " ^ str ^ ", caused by \"" ^ s ^ "\"")
             end
-      val grammar =
-            case ast of
-              [ast] => Grammar.fromAst ast
-            | _ => raise Fail "parsing failed"
+      val ast = case asts of [ast] => ast | _ => raise Fail "parsing failed"
+      val grammar = Grammar.fromAst ast
       val automaton = Automaton.makeAutomaton grammar
+      val Parse.Ast.Grammar (_, tokens, _) = ast
     in
       (* Print the grammar as comment *)
       TextIO.output (outs, "(*\n");
@@ -1312,7 +1331,10 @@ structure Main = struct
       TextIO.output (outs, "*)\n");
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
-      if makefile = true then ResourceGen.generateResources sources else ()
+      if makefile = true then (
+        ResourceGen.generateResources sources;
+        ResourceGen.expandResources tokens)
+      else ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
