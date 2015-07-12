@@ -1270,17 +1270,15 @@ structure ResourceGen = struct
           List.app emitResource Resource.resources
         end
 
-  fun expandResources m tokens =
+  fun expandResources m l tokens =
         let
           val resources =
                 case m of
                      "mlton" => ["boot.sml.m4",
                                  "main.mlb.m4",
-                                 "main.sml.m4",
-                                 "scan.ulex.m4"]
+                                 "main.sml.m4"]
                    | _       => ["boot.sml.m4",
-                                 "main.sml.m4",
-                                 "scan.ulex.m4"]
+                                 "main.sml.m4"]
           fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
                 SOME "-DPROGLR_USE_INTEGER"
             | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
@@ -1292,26 +1290,36 @@ structure ResourceGen = struct
             | tokenToDef (Parse.Ast.AttrToken (_, "Ident", "string")) =
                 SOME "-DPROGLR_USE_IDENT"
             | tokenToDef _ = NONE
-          val defs = List.mapPartial tokenToDef tokens
+          val lexDef = case l of
+                            SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
+                          | NONE => []
+          val defs = lexDef @ List.mapPartial tokenToDef tokens
         in
           List.app (fn r => expand defs r (OS.Path.base r)) resources
         end
 
   fun generateLexer m =
         let
-          val args = ["ml-ulex", "scan.ulex"]
-          val outs =
-                BinIO.openOut "/dev/null"
-          fun f outs = ()
+          fun expandLexer () = expand [] "scan.ulex.m4" m
+          fun generateSml () =
+                let
+                  val args = ["ml-ulex", m]
+                  val outs =
+                    BinIO.openOut "/dev/null"
+                  fun f outs = ()
+                in
+                  spawn args outs f
+                end
         in
-          spawn args outs f
+          expandLexer ();
+          generateSml ()
         end
 end
 
 structure Args = struct
   open GetOpt
 
-  val opts = [StrOpt #"m", StrOpt #"d"]
+  val opts = [StrOpt #"m", StrOpt #"d", StrOpt #"l"]
 
   fun getM [] = NONE
     | getM (Str (#"m", m)::opts) = SOME m
@@ -1320,6 +1328,10 @@ structure Args = struct
   fun getD [] = NONE
     | getD (Str (#"d", d)::opts) = SOME d
     | getD (_::opts) = getD opts
+
+  fun getL [] = NONE
+    | getL (Str (#"l", l)::opts) = SOME l
+    | getL (_::opts) = getL opts
 
   fun parse args = getopt opts (List.::) [] args
 end
@@ -1351,6 +1363,7 @@ structure Main = struct
       val grammar = Grammar.fromAst ast
       val automaton = Automaton.makeAutomaton grammar
       val Parse.Ast.Grammar (_, tokens, _) = ast
+      val lexFileName = Args.getL opts
     in
       (* Print the grammar as comment *)
       TextIO.output (outs, "(*\n");
@@ -1358,11 +1371,13 @@ structure Main = struct
       TextIO.output (outs, "*)\n");
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
+      case lexFileName of
+           SOME l => ResourceGen.generateLexer l
+         | NONE => ();
       case Args.getM opts of
            SOME m => (
              ResourceGen.generateResources m;
-             ResourceGen.expandResources m tokens;
-             ResourceGen.generateLexer m)
+             ResourceGen.expandResources m lexFileName tokens)
          | NONE => ();
       case  Args.getD opts of
            SOME d => writeDot automaton d
