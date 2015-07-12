@@ -1164,6 +1164,56 @@ structure CodeGenerator = struct
 end
 
 structure ResourceGen = struct
+  (* spawn command specified by args whose stdout is connected to outs
+     and execute function f which takes stdin of the spawned process *)
+  fun spawn args outs f =
+        let
+          val (BinPrimIO.WR {ioDesc, ...}, _) =
+                BinIO.StreamIO.getWriter (BinIO.getOutstream outs)
+          val fd = (Option.valOf o Posix.FileSys.iodToFD o Option.valOf) ioDesc
+          val {infd = pipeIn, outfd = pipeOut} = Posix.IO.pipe ()
+          val writer = Posix.IO.mkTextWriter {
+                fd = pipeOut,
+                name = "-",
+                appendMode = true,
+                initBlkMode = false,
+                chunkSize = 1024 }
+          val outs =
+                TextIO.mkOutstream (TextIO.StreamIO.mkOutstream (writer, IO.LINE_BUF))
+        in
+          case Posix.Process.fork () of
+               NONE => (
+                 Posix.IO.close pipeOut;
+                 Posix.IO.dup2 {old = pipeIn, new = Posix.FileSys.stdin};
+                 Posix.IO.close pipeIn;
+                 Posix.IO.dup2 {old = fd, new = Posix.FileSys.stdout};
+                 Posix.IO.close fd;
+                 Posix.Process.execp (hd args, args);
+                 ())
+             | SOME pid => (
+                 Posix.IO.close pipeIn;
+                 f outs;
+                 Posix.IO.close pipeOut;
+                 Posix.Process.waitpid (Posix.Process.W_CHILD pid, []);
+                 ())
+        end
+
+  fun expand defs resourceName outputName =
+        let
+          val args = ["m4"] @ defs
+          fun feed outs =
+                let
+                  val content = Resource.get resourceName
+                in
+                  TextIO.output (outs, content);
+                  TextIO.flushOut outs
+                end
+          val outs = BinIO.openOut outputName
+        in
+          spawn args outs feed;
+          BinIO.closeOut outs
+        end
+
   fun dirExists path =
     let
       val dir = OS.FileSys.openDir path 
@@ -1172,6 +1222,7 @@ structure ResourceGen = struct
       true
     end
     handle OS.SysErr _ => false
+
   fun mkDirP dir =
     let
       val canonical = OS.Path.mkCanonical dir
@@ -1186,6 +1237,7 @@ structure ResourceGen = struct
     in
       ignore (List.foldl concatAndMake parent arcs)
     end
+
   fun generateResources sources =
     let
       fun emitResource ("", _) = ()
