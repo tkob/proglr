@@ -1238,30 +1238,38 @@ structure ResourceGen = struct
       ignore (List.foldl concatAndMake parent arcs)
     end
 
-  fun generateResources m =
-    let
-      fun emitResource ("", _) = ()
-        | emitResource (path, content) =
+  fun generateResources "mlton" = ()
+    | generateResources m =
         let
-          val {dir, file} = OS.Path.splitDirFile path
+          fun emitResource ("", _) = ()
+            | emitResource (path, content) =
+                let
+                  val {dir, file} = OS.Path.splitDirFile path
+                in
+                  mkDirP dir;
+                  let
+                    val outs = BinIO.openOut path
+                    val content = Byte.stringToBytes content
+                  in
+                    BinIO.output (outs, content);
+                    BinIO.closeOut outs
+                  end
+                end
         in
-          mkDirP dir;
-          let
-            val outs = BinIO.openOut path
-            val content = Byte.stringToBytes content
-          in
-            BinIO.output (outs, content);
-            BinIO.closeOut outs
-          end
+          List.app emitResource Resource.resources
         end
-    in
-      List.app emitResource Resource.resources
-    end
 
   fun expandResources m tokens =
         let
           val resources =
-                ["boot.sml.m4", "main.mlb.m4", "main.sml.m4", "scan.ulex.m4"]
+                case m of
+                     "mlton" => ["boot.sml.m4",
+                                 "main.mlb.m4",
+                                 "main.sml.m4",
+                                 "scan.ulex.m4"]
+                   | _       => ["boot.sml.m4",
+                                 "main.sml.m4",
+                                 "scan.ulex.m4"]
           fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
                 SOME "-DPROGLR_USE_INTEGER"
             | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
