@@ -17,6 +17,8 @@ SRCS = \
 	ml-lpt/lib/wrapped-strm.sml \
 	cmlib/hash-inc.sml \
 	cmlib/hash-table.sml \
+	getopt.sml/getopt-sig.sml \
+	getopt.sml/getopt.sml \
 	parse.sml \
 	scan.ulex.sml \
 	resource.sml \

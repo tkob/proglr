@@ -15,6 +15,8 @@ FILES = smlnj-lib/Util/utf8-sig.sml \
 	cmlib/hashable.sig \
 	cmlib/hash-table.sig \
 	cmlib/hash-table.sml \
+	getopt.sml/getopt-sig.sml \
+	getopt.sml/getopt.sml \
 	parse.sml \
 	scan.ulex.sml \
 	resource.sml \
