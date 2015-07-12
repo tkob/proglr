@@ -45,8 +45,13 @@ end
 
 fun main () =
 let
+  fun toAbs path = OS.Path.mkAbsolute {path=path, relativeTo=OS.FileSys.getDir ()}
   (* 1st argument is structure name *)
-  val (str::paths) = CommandLine.arguments () 
+  (* 2nd argument changes working directory *)
+  val (str::cwd::paths) = CommandLine.arguments ()
+  val cwd' = toAbs cwd
+  val paths' = map (fn path => OS.Path.mkRelative {path=toAbs path, relativeTo=cwd'}) paths
 in
-  writeStructure (str, paths, TextIO.stdOut)
+  OS.FileSys.chDir cwd;
+  writeStructure (str, paths', TextIO.stdOut)
 end

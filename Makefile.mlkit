@@ -1,25 +1,4 @@
-RESOURCES = cmlib/hash-table.smi \
-            cmlib/idict.sig \
-            cmlib/hash-inc.smi \
-            cmlib/hashable.sig \
-            cmlib/LICENSE \
-            cmlib/hash-table.sml \
-            cmlib/hash-table.sig \
-            cmlib/hash-inc.sig \
-            cmlib/AUTHORS \
-            cmlib/hash-inc.sml \
-            smlnj-lib/PORTING \
-            smlnj-lib/Util/utf8-sig.sml \
-            smlnj-lib/Util/utf8.mlb \
-            smlnj-lib/Util/utf8.sml \
-            smlnj-lib/Util/utf8-sig.smi \
-            smlnj-lib/Util/utf8.smi \
-            smlnj-lib/Util/README \
-            smlnj-lib/Util/TODO \
-            smlnj-lib/LICENSE \
-            smlnj-lib/README \
-            smlnj-lib/CHANGES \
-            smlnj-lib/TODO
+MKRESOURCE = ./mkresource
 
 proglr: parse.sml scan.ulex.sml resource.sml proglr.sml boot.sml 
 	mlkit -output 'proglr' proglr.mlb 
@@ -27,11 +6,10 @@ proglr: parse.sml scan.ulex.sml resource.sml proglr.sml boot.sml
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
-mkresource: mkresource.sml mkresource-boot.sml
-	mlkit -output mkresource mkresource.mlb
+$(MKRESOURCE): mkresource.sml mkresource-boot.sml
+	mlkit -output $(MKRESOURCE) mkresource.mlb
 
-resource.sml: mkresource
-	./mkresource Resource $(RESOURCES) >  resource.sml
+include Makefile.mkresource
 
 clean:
 	rm -f proglr

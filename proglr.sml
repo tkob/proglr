@@ -1163,6 +1163,132 @@ structure CodeGenerator = struct
     end
 end
 
+structure ResourceGen = struct
+  (* spawn command specified by args whose stdout is connected to outs
+     and execute function f which takes stdin of the spawned process *)
+  fun spawn args outs f =
+        let
+          val (BinPrimIO.WR {ioDesc, ...}, _) =
+                BinIO.StreamIO.getWriter (BinIO.getOutstream outs)
+          val fd = (Option.valOf o Posix.FileSys.iodToFD o Option.valOf) ioDesc
+          val {infd = pipeIn, outfd = pipeOut} = Posix.IO.pipe ()
+          val writer = Posix.IO.mkTextWriter {
+                fd = pipeOut,
+                name = "-",
+                appendMode = true,
+                initBlkMode = false,
+                chunkSize = 1024 }
+          val outs =
+                TextIO.mkOutstream (TextIO.StreamIO.mkOutstream (writer, IO.LINE_BUF))
+        in
+          case Posix.Process.fork () of
+               NONE => (
+                 Posix.IO.close pipeOut;
+                 Posix.IO.dup2 {old = pipeIn, new = Posix.FileSys.stdin};
+                 Posix.IO.close pipeIn;
+                 Posix.IO.dup2 {old = fd, new = Posix.FileSys.stdout};
+                 Posix.IO.close fd;
+                 Posix.Process.execp (hd args, args);
+                 ())
+             | SOME pid => (
+                 Posix.IO.close pipeIn;
+                 f outs;
+                 Posix.IO.close pipeOut;
+                 Posix.Process.waitpid (Posix.Process.W_CHILD pid, []);
+                 ())
+        end
+
+  fun expand defs resourceName outputName =
+        let
+          val args = ["m4"] @ defs
+          fun feed outs =
+                let
+                  val content = Resource.get resourceName
+                in
+                  TextIO.output (outs, content);
+                  TextIO.flushOut outs
+                end
+          val outs = BinIO.openOut outputName
+        in
+          spawn args outs feed;
+          BinIO.closeOut outs
+        end
+
+  fun dirExists path =
+    let
+      val dir = OS.FileSys.openDir path 
+    in
+      OS.FileSys.closeDir dir;
+      true
+    end
+    handle OS.SysErr _ => false
+
+  fun mkDirP dir =
+    let
+      val canonical = OS.Path.mkCanonical dir
+      val {arcs, isAbs, vol} = OS.Path.fromString canonical
+      val parent = if isAbs then "/" else "."
+      fun concatAndMake (t, path) =
+        let val newPath = OS.Path.concat (path, t) in
+          if dirExists newPath then ()
+          else OS.FileSys.mkDir newPath;
+          newPath
+        end
+    in
+      ignore (List.foldl concatAndMake parent arcs)
+    end
+
+  fun generateResources sources =
+    let
+      fun emitResource ("", _) = ()
+        | emitResource (path, content) =
+        let
+          val {dir, file} = OS.Path.splitDirFile path
+        in
+          mkDirP dir;
+          let
+            val outs = BinIO.openOut path
+            val content = Byte.stringToBytes content
+          in
+            BinIO.output (outs, content);
+            BinIO.closeOut outs
+          end
+        end
+    in
+      List.app emitResource Resource.resources
+    end
+
+  fun expandResources tokens =
+        let
+          val resources =
+                ["boot.sml.m4", "main.mlb.m4", "main.sml.m4", "scan.ulex.m4"]
+          fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
+                SOME "-DPROGLR_USE_INTEGER"
+            | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
+                SOME "-DPROGLR_USE_DOUBLE"
+            | tokenToDef (Parse.Ast.AttrToken (_, "Char", "char")) =
+                SOME "-DPROGLR_USE_CHAR"
+            | tokenToDef (Parse.Ast.AttrToken (_, "String", "string")) =
+                SOME "-DPROGLR_USE_STRING"
+            | tokenToDef (Parse.Ast.AttrToken (_, "Ident", "string")) =
+                SOME "-DPROGLR_USE_IDENT"
+            | tokenToDef _ = NONE
+          val defs = List.mapPartial tokenToDef tokens
+        in
+          List.app (fn r => expand defs r (OS.Path.base r)) resources
+        end
+
+  fun generateLexer () =
+        let
+          val args = ["ml-ulex", "scan.ulex"]
+          val outs =
+                BinIO.openOut "/dev/null"
+          fun f outs = ()
+        in
+          spawn args outs f
+        end
+end
+
 structure Args = struct
   type t = {
     makefile : bool,
@@ -1186,25 +1312,24 @@ structure Args = struct
 end
 
 structure Main = struct
-  fun generate ins inFileName outs =
+  fun generate ins inFileName outs {makefile, dot, sources} =
     let
       val strm = Lexer.streamifyInstream ins
       val sourcemap =
-        case inFileName of 
-          NONE => AntlrStreamPos.mkSourcemap ()
-        | SOME name => AntlrStreamPos.mkSourcemap' name
-      val ast = Parse.parse sourcemap strm handle Fail s =>
-        let
-          val pos = Lexer.getPos strm
-          val str = AntlrStreamPos.toString sourcemap pos
-        in
-          raise Fail ("Parsing failed at " ^ str ^ ", caused by \"" ^ s ^ "\"")
-        end
-      val grammar =
-        case ast of
-          [ast] => Grammar.fromAst ast
-        | _ => raise Fail "parsing failed"
+            case inFileName of
+              NONE => AntlrStreamPos.mkSourcemap ()
+            | SOME name => AntlrStreamPos.mkSourcemap' name
+      val asts = Parse.parse sourcemap strm handle Fail s =>
+            let
+              val pos = Lexer.getPos strm
+              val str = AntlrStreamPos.toString sourcemap pos
+            in
+              raise Fail ("Parsing failed at " ^ str ^ ", caused by \"" ^ s ^ "\"")
+            end
+      val ast = case asts of [ast] => ast | _ => raise Fail "parsing failed"
+      val grammar = Grammar.fromAst ast
       val automaton = Automaton.makeAutomaton grammar
+      val Parse.Ast.Grammar (_, tokens, _) = ast
     in
       (* Print the grammar as comment *)
       TextIO.output (outs, "(*\n");
@@ -1215,20 +1340,24 @@ structure Main = struct
       Automaton.printAutomaton outs automaton;
       TextIO.output (outs, "*)\n");
       (* and then the structure *)
-      CodeGenerator.generateParser outs grammar automaton
+      CodeGenerator.generateParser outs grammar automaton;
+      if makefile = true then (
+        ResourceGen.generateResources sources;
+        ResourceGen.expandResources tokens;
+        ResourceGen.generateLexer ())
+      else ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
 
 fun main () =
   let
-    val {makefile, dot, sources} = Args.parse (CommandLine.arguments ())
+    val opts as {makefile, dot, sources} = Args.parse (CommandLine.arguments ())
     fun replaceExt (path, newExt) =
       let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
   in
-    if makefile = true then () else ();
     case sources of
-         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut
+         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut opts
        | sources =>
            let
              fun generate fileName =
@@ -1236,7 +1365,7 @@ fun main () =
                  val ins = TextIO.openIn fileName
                  val outs = TextIO.openOut (replaceExt (fileName, "sml"))
                in
-                 Main.generate ins (SOME fileName) outs
+                 Main.generate ins (SOME fileName) outs opts
                end
            in
              List.app generate sources
