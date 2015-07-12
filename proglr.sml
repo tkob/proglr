@@ -1238,7 +1238,7 @@ structure ResourceGen = struct
       ignore (List.foldl concatAndMake parent arcs)
     end
 
-  fun generateResources sources =
+  fun generateResources m =
     let
       fun emitResource ("", _) = ()
         | emitResource (path, content) =
@@ -1258,7 +1258,7 @@ structure ResourceGen = struct
       List.app emitResource Resource.resources
     end
 
-  fun expandResources tokens =
+  fun expandResources m tokens =
         let
           val resources =
                 ["boot.sml.m4", "main.mlb.m4", "main.sml.m4", "scan.ulex.m4"]
@@ -1278,7 +1278,7 @@ structure ResourceGen = struct
           List.app (fn r => expand defs r (OS.Path.base r)) resources
         end
 
-  fun generateLexer () =
+  fun generateLexer m =
         let
           val args = ["ml-ulex", "scan.ulex"]
           val outs =
@@ -1290,29 +1290,19 @@ structure ResourceGen = struct
 end
 
 structure Args = struct
-  type t = {
-    makefile : bool,
-    dot : bool,
-    sources : string list}
+  open GetOpt
 
-  val default = {
-    makefile = false,
-    dot = true,
-    sources = []}
+  val opts = [StrOpt #"m"]
 
-  fun parse' (v, []) = v
-    | parse' ({makefile, dot, sources}, "-m"::args) =
-        parse' ({makefile = true, dot = dot, sources = sources}, args)
-    | parse' ({makefile, dot, sources}, "--dot"::args) =
-        parse' ({makefile = makefile, dot = true, sources = sources}, args)
-    | parse' ({makefile, dot, sources}, args) =
-        {makefile = makefile, dot = dot, sources = args}
+  fun getM [] = NONE
+    | getM (Str (#"m", m)::opts) = SOME m
+    | getM (_::opts) = getM opts
 
-  fun parse args = parse' (default, args)
+  fun parse args = getopt opts (List.::) [] args
 end
 
 structure Main = struct
-  fun generate ins inFileName outs {makefile, dot, sources} =
+  fun generate ins inFileName outs opts =
     let
       val strm = Lexer.streamifyInstream ins
       val sourcemap =
@@ -1341,18 +1331,19 @@ structure Main = struct
       TextIO.output (outs, "*)\n");
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
-      if makefile = true then (
-        ResourceGen.generateResources sources;
-        ResourceGen.expandResources tokens;
-        ResourceGen.generateLexer ())
-      else ()
+      case Args.getM opts of
+           SOME m => (
+             ResourceGen.generateResources m;
+             ResourceGen.expandResources m tokens;
+             ResourceGen.generateLexer m)
+         | NONE => ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
 
 fun main () =
   let
-    val opts as {makefile, dot, sources} = Args.parse (CommandLine.arguments ())
+    val (opts, sources) = Args.parse (CommandLine.arguments ())
     fun replaceExt (path, newExt) =
       let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
   in
