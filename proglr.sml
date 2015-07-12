@@ -575,24 +575,35 @@ structure Automaton :> AUTOMATON where
 
   fun printStates outs states =
     let
-      fun showState state = String.concatWith " | " (List.map LrItem.show state)
-      fun printState (n, state) =
-        TextIO.output (outs, (Int.toString n ^ ": " ^ showState state ^ "\n"))
+      fun printLrItem lrItem = TextIO.output (outs, LrItem.show lrItem ^ "\\n")
+      fun printState (n, state) = (
+            TextIO.output (outs, ("State" ^ Int.toString n ^ " [ label=\"State" ^
+            Int.toString n ^ "\\n"));
+            List.app printLrItem state;
+            TextIO.output (outs, "\"]\n"))
     in
       List.app printState (Intern.toList states)
     end
   
   fun printTransitions outs transitions =
     let
-      fun printTransition (s1, symbol, s2) =
-        TextIO.output (outs, (Int.toString s1 ^ " -> " ^ Grammar.showSymbol symbol ^ " -> " ^ Int.toString s2 ^ "\n"))
+      fun printTransition (s1, symbol, s2) = (
+            TextIO.output (outs, "State" ^ Int.toString s1);
+            TextIO.output (outs, " -> State" ^ Int.toString s2);
+            TextIO.output (outs, " [ label=\"");
+            TextIO.output (outs, Grammar.showSymbol symbol);
+            TextIO.output (outs, "\"]\n"))
     in
       List.app printTransition transitions
     end
 
-  fun printAutomaton outs (states, transitions) =
-    (printStates outs states;
-    printTransitions outs transitions)
+  fun printAutomaton outs (states, transitions) = (
+        TextIO.output (outs, "digraph automaton {\n");
+        TextIO.output (outs, "graph [ rankdir = LR ];\n");
+        TextIO.output (outs, "node [shape = box ];\n");
+        printStates outs states;
+        printTransitions outs transitions;
+        TextIO.output (outs, "}\n"))
 end
 
 structure MLAst = struct
@@ -1300,16 +1311,28 @@ end
 structure Args = struct
   open GetOpt
 
-  val opts = [StrOpt #"m"]
+  val opts = [StrOpt #"m", StrOpt #"d"]
 
   fun getM [] = NONE
     | getM (Str (#"m", m)::opts) = SOME m
     | getM (_::opts) = getM opts
 
+  fun getD [] = NONE
+    | getD (Str (#"d", d)::opts) = SOME d
+    | getD (_::opts) = getD opts
+
   fun parse args = getopt opts (List.::) [] args
 end
 
 structure Main = struct
+  fun writeDot automaton fileName =
+        let
+          val outs = TextIO.openOut fileName
+        in
+          Automaton.printAutomaton outs automaton
+          before TextIO.closeOut outs
+        end
+
   fun generate ins inFileName outs opts =
     let
       val strm = Lexer.streamifyInstream ins
@@ -1333,10 +1356,6 @@ structure Main = struct
       TextIO.output (outs, "(*\n");
       Grammar.printGrammar outs grammar;
       TextIO.output (outs, "*)\n");
-      (* Print the automaton as comment *)
-      TextIO.output (outs, "(*\n");
-      Automaton.printAutomaton outs automaton;
-      TextIO.output (outs, "*)\n");
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
       case Args.getM opts of
@@ -1344,6 +1363,9 @@ structure Main = struct
              ResourceGen.generateResources m;
              ResourceGen.expandResources m tokens;
              ResourceGen.generateLexer m)
+         | NONE => ();
+      case  Args.getD opts of
+           SOME d => writeDot automaton d
          | NONE => ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
