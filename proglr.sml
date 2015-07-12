@@ -1277,6 +1277,16 @@ structure ResourceGen = struct
         in
           List.app (fn r => expand defs r (OS.Path.base r)) resources
         end
+
+  fun generateLexer () =
+        let
+          val args = ["ml-ulex", "scan.ulex"]
+          val outs =
+                BinIO.openOut "/dev/null"
+          fun f outs = ()
+        in
+          spawn args outs f
+        end
 end
 
 structure Args = struct
@@ -1333,7 +1343,8 @@ structure Main = struct
       CodeGenerator.generateParser outs grammar automaton;
       if makefile = true then (
         ResourceGen.generateResources sources;
-        ResourceGen.expandResources tokens)
+        ResourceGen.expandResources tokens;
+        ResourceGen.generateLexer ())
       else ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
