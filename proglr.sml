@@ -1282,24 +1282,24 @@ structure Args = struct
 end
 
 structure Main = struct
-  fun generate ins inFileName outs =
+  fun generate ins inFileName outs {makefile, dot, sources} =
     let
       val strm = Lexer.streamifyInstream ins
       val sourcemap =
-        case inFileName of 
-          NONE => AntlrStreamPos.mkSourcemap ()
-        | SOME name => AntlrStreamPos.mkSourcemap' name
+            case inFileName of
+              NONE => AntlrStreamPos.mkSourcemap ()
+            | SOME name => AntlrStreamPos.mkSourcemap' name
       val ast = Parse.parse sourcemap strm handle Fail s =>
-        let
-          val pos = Lexer.getPos strm
-          val str = AntlrStreamPos.toString sourcemap pos
-        in
-          raise Fail ("Parsing failed at " ^ str ^ ", caused by \"" ^ s ^ "\"")
-        end
+            let
+              val pos = Lexer.getPos strm
+              val str = AntlrStreamPos.toString sourcemap pos
+            in
+              raise Fail ("Parsing failed at " ^ str ^ ", caused by \"" ^ s ^ "\"")
+            end
       val grammar =
-        case ast of
-          [ast] => Grammar.fromAst ast
-        | _ => raise Fail "parsing failed"
+            case ast of
+              [ast] => Grammar.fromAst ast
+            | _ => raise Fail "parsing failed"
       val automaton = Automaton.makeAutomaton grammar
     in
       (* Print the grammar as comment *)
@@ -1311,20 +1311,20 @@ structure Main = struct
       Automaton.printAutomaton outs automaton;
       TextIO.output (outs, "*)\n");
       (* and then the structure *)
-      CodeGenerator.generateParser outs grammar automaton
+      CodeGenerator.generateParser outs grammar automaton;
+      if makefile = true then ResourceGen.generateResources sources else ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
 
 fun main () =
   let
-    val {makefile, dot, sources} = Args.parse (CommandLine.arguments ())
+    val opts as {makefile, dot, sources} = Args.parse (CommandLine.arguments ())
     fun replaceExt (path, newExt) =
       let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
   in
-    if makefile = true then ResourceGen.generateResources sources else ();
     case sources of
-         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut
+         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut opts
        | sources =>
            let
              fun generate fileName =
@@ -1332,7 +1332,7 @@ fun main () =
                  val ins = TextIO.openIn fileName
                  val outs = TextIO.openOut (replaceExt (fileName, "sml"))
                in
-                 Main.generate ins (SOME fileName) outs
+                 Main.generate ins (SOME fileName) outs opts
                end
            in
              List.app generate sources
