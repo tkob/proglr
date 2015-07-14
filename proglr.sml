@@ -1318,7 +1318,13 @@ structure ResourceGen = struct
             | tokenToDef (Parse.Ast.AttrToken (_, "Ident", "string")) =
                 SOME "-DPROGLR_USE_IDENT"
             | tokenToDef _ = NONE
-          val defs = List.mapPartial tokenToDef tokens
+          val flagDefs = List.mapPartial tokenToDef tokens
+          fun kw (Parse.Ast.Keyword (_, name, literal)) =
+                SOME (name ^ "," ^ Util.escapeUnicode literal)
+            | kw _ = NONE
+          val kwDef = "-DPROGLR_KEYWORDS=" ^
+                      String.concatWith "," (List.mapPartial kw tokens)
+          val defs = kwDef :: flagDefs
           fun expandLexer () = expand defs "scan.ulex.m4" l
           fun generateSml () =
                 let
