@@ -25,6 +25,25 @@ structure Util = struct
   
   fun toLower s = String.implode (List.map Char.toLower (String.explode s))
   fun toUpper s = String.implode (List.map Char.toUpper (String.explode s))
+
+  fun escapeUnicode s =
+        let
+          fun pad d =
+                case String.size d of
+                     4 => "\\u" ^ d
+                   | 8 => "\\U" ^ d
+                   | l => if l < 8 then pad ("0" ^ d)
+                          else raise Fail (d ^ ": too large for unicode")
+          val wchars = UTF8.explode s
+          fun isAlphaNum c =
+                UTF8.isAscii c andalso Char.isAlphaNum (UTF8.toAscii c)
+          fun escapeWChar c =
+                if isAlphaNum c
+                then UTF8.toString c
+                else pad (Word.toString c)
+        in
+          concat (map escapeWChar (UTF8.explode s))
+        end
 end
 
 signature INTERN = sig
