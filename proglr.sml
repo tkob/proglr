@@ -1289,7 +1289,7 @@ structure ResourceGen = struct
           List.app emitResource Resource.resources
         end
 
-  fun expandResources m l tokens =
+  fun expandResources m l =
         let
           val resources =
                 case m of
@@ -1298,6 +1298,15 @@ structure ResourceGen = struct
                                  "main.sml.m4"]
                    | _       => ["boot.sml.m4",
                                  "main.sml.m4"]
+          val defs = case l of
+                          SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
+                        | NONE => []
+        in
+          List.app (fn r => expand defs r (OS.Path.base r)) resources
+        end
+
+  fun generateLexer l tokens =
+        let
           fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
                 SOME "-DPROGLR_USE_INTEGER"
             | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
@@ -1309,20 +1318,11 @@ structure ResourceGen = struct
             | tokenToDef (Parse.Ast.AttrToken (_, "Ident", "string")) =
                 SOME "-DPROGLR_USE_IDENT"
             | tokenToDef _ = NONE
-          val lexDef = case l of
-                            SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
-                          | NONE => []
-          val defs = lexDef @ List.mapPartial tokenToDef tokens
-        in
-          List.app (fn r => expand defs r (OS.Path.base r)) resources
-        end
-
-  fun generateLexer m =
-        let
-          fun expandLexer () = expand [] "scan.ulex.m4" m
+          val defs = List.mapPartial tokenToDef tokens
+          fun expandLexer () = expand defs "scan.ulex.m4" l
           fun generateSml () =
                 let
-                  val args = ["ml-ulex", m]
+                  val args = ["ml-ulex", l]
                   val outs =
                     BinIO.openOut "/dev/null"
                   fun f outs = ()
@@ -1391,12 +1391,12 @@ structure Main = struct
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
       case lexFileName of
-           SOME l => ResourceGen.generateLexer l
+           SOME l => ResourceGen.generateLexer l tokens
          | NONE => ();
       case Args.getM opts of
            SOME m => (
              ResourceGen.generateResources m;
-             ResourceGen.expandResources m lexFileName tokens)
+             ResourceGen.expandResources m lexFileName)
          | NONE => ();
       case  Args.getD opts of
            SOME d => writeDot automaton d
