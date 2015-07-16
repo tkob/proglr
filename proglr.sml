@@ -44,6 +44,18 @@ structure Util = struct
         in
           concat (map escapeWChar (UTF8.explode s))
         end
+
+  fun bracket acquire release use =
+        let
+          val resource = acquire
+        in
+          use resource before release resource
+          handle e => (release resource; raise e)
+        end
+  fun withTextIn name = bracket (TextIO.openIn name) TextIO.closeIn
+  fun withTextOut name = bracket (TextIO.openOut name) TextIO.closeOut
+  fun withBinIn name = bracket (BinIO.openIn name) BinIO.closeIn
+  fun withBinOut name = bracket (BinIO.openOut name) BinIO.closeOut
 end
 
 signature INTERN = sig
@@ -1238,10 +1250,8 @@ structure ResourceGen = struct
                   TextIO.output (outs, content);
                   TextIO.flushOut outs
                 end
-          val outs = BinIO.openOut outputName
         in
-          spawn args outs feed;
-          BinIO.closeOut outs
+          Util.withBinOut outputName (fn outs => spawn args outs feed)
         end
 
   fun dirExists path =
@@ -1278,11 +1288,10 @@ structure ResourceGen = struct
                 in
                   mkDirP dir;
                   let
-                    val outs = BinIO.openOut path
                     val content = Byte.stringToBytes content
                   in
-                    BinIO.output (outs, content);
-                    BinIO.closeOut outs
+                    Util.withBinOut path (fn outs =>
+                    BinIO.output (outs, content))
                   end
                 end
         in
@@ -1329,11 +1338,9 @@ structure ResourceGen = struct
           fun generateSml () =
                 let
                   val args = ["ml-ulex", l]
-                  val outs =
-                    BinIO.openOut "/dev/null"
                   fun f outs = ()
                 in
-                  spawn args outs f
+                  Util.withBinOut "/dev/null" (fn outs => spawn args outs f)
                 end
         in
           expandLexer ();
@@ -1363,12 +1370,8 @@ end
 
 structure Main = struct
   fun writeDot automaton fileName =
-        let
-          val outs = TextIO.openOut fileName
-        in
-          Automaton.printAutomaton outs automaton
-          before TextIO.closeOut outs
-        end
+        Util.withTextOut fileName (fn outs =>
+        Automaton.printAutomaton outs automaton)
 
   fun generate ins inFileName outs opts =
     let
@@ -1419,17 +1422,10 @@ fun main () =
   in
     case sources of
          [] => Main.generate TextIO.stdIn NONE TextIO.stdOut opts
-       | sources =>
-           let
-             fun generate fileName =
-               let
-                 val ins = TextIO.openIn fileName
-                 val outs = TextIO.openOut (replaceExt (fileName, "sml"))
-               in
-                 Main.generate ins (SOME fileName) outs opts
-               end
-           in
-             List.app generate sources
-           end
+       | [fileName] =>
+           Util.withTextIn fileName (fn ins =>
+           Util.withTextOut (replaceExt (fileName, "sml")) (fn outs =>
+             Main.generate ins (SOME fileName) outs opts))
+       | _ => raise Fail "multiple input files"
   end
   handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
