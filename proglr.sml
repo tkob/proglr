@@ -1351,15 +1351,15 @@ end
 structure Args = struct
   open GetOpt
 
-  val opts = [StrOpt #"m", StrOpt #"d", StrOpt #"l"]
+  val opts = [StrOpt #"m", StrOpt #"a", StrOpt #"l"]
 
   fun getM [] = NONE
     | getM (Str (#"m", m)::opts) = SOME m
     | getM (_::opts) = getM opts
 
-  fun getD [] = NONE
-    | getD (Str (#"d", d)::opts) = SOME d
-    | getD (_::opts) = getD opts
+  fun getA [] = NONE
+    | getA (Str (#"a", a)::opts) = SOME a
+    | getA (_::opts) = getA opts
 
   fun getL [] = NONE
     | getL (Str (#"l", l)::opts) = SOME l
@@ -1399,16 +1399,22 @@ structure Main = struct
       TextIO.output (outs, "*)\n");
       (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
+
+      (* Write dot file if "-a" option is specified *)
+      case Args.getA opts of
+           SOME a => writeDot automaton a
+         | NONE => ();
+
+      (* Generate lexer file if "-l" option is specified *)
       case lexFileName of
            SOME l => ResourceGen.generateLexer l tokens
          | NONE => ();
+
+      (* Generate files for building *)
       case Args.getM opts of
            SOME m => (
              ResourceGen.generateResources m;
              ResourceGen.expandResources m lexFileName)
-         | NONE => ();
-      case  Args.getD opts of
-           SOME d => writeDot automaton d
          | NONE => ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
