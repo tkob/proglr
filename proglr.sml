@@ -1353,17 +1353,12 @@ structure Args = struct
 
   val opts = [StrOpt #"m", StrOpt #"a", StrOpt #"l"]
 
-  fun getM [] = NONE
-    | getM (Str (#"m", m)::opts) = SOME m
-    | getM (_::opts) = getM opts
-
-  fun getA [] = NONE
-    | getA (Str (#"a", a)::opts) = SOME a
-    | getA (_::opts) = getA opts
-
-  fun getL [] = NONE
-    | getL (Str (#"l", l)::opts) = SOME l
-    | getL (_::opts) = getL opts
+  fun get ch [] = NONE
+    | get ch (Str (ch', v)::opts) = if ch = ch' then SOME v else get ch opts
+    | get ch (_::opts) = get ch opts
+  val getM = get #"m"
+  val getA = get #"a"
+  val getL = get #"l"
 
   fun parse args = getopt opts (List.::) [] args
 end
