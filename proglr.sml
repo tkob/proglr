@@ -1278,19 +1278,19 @@ structure ResourceGen = struct
       ignore (List.foldl concatAndMake parent arcs)
     end
 
-  fun generateResources "mlton" = ()
-    | generateResources m =
+  fun generateResources "mlton" dir = ()
+    | generateResources m dir =
         let
           fun emitResource ("", _) = ()
             | emitResource (path, content) =
                 let
-                  val {dir, file} = OS.Path.splitDirFile path
+                  val subDir = OS.Path.dir path
                 in
-                  mkDirP dir;
+                  mkDirP (OS.Path.concat (dir, subDir));
                   let
                     val content = Byte.stringToBytes content
                   in
-                    Util.withBinOut path (fn outs =>
+                    Util.withBinOut (OS.Path.concat (dir, path)) (fn outs =>
                     BinIO.output (outs, content))
                   end
                 end
@@ -1298,7 +1298,7 @@ structure ResourceGen = struct
           List.app emitResource Resource.resources
         end
 
-  fun expandResources m l =
+  fun expandResources m dir l =
         let
           val resources =
                 case m of
@@ -1311,7 +1311,9 @@ structure ResourceGen = struct
                           SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
                         | NONE => []
         in
-          List.app (fn r => expand defs r (OS.Path.base r)) resources
+          List.app
+            (fn r => expand defs r (OS.Path.concat (dir, OS.Path.base r)))
+            resources
         end
 
   fun generateLexer l tokens =
@@ -1351,7 +1353,7 @@ end
 structure Args = struct
   open GetOpt
 
-  val opts = [StrOpt #"m", StrOpt #"a", StrOpt #"l"]
+  val opts = [StrOpt #"m", StrOpt #"a", StrOpt #"l", StrOpt #"o"]
 
   fun get ch [] = NONE
     | get ch (Str (ch', v)::opts) = if ch = ch' then SOME v else get ch opts
@@ -1359,6 +1361,7 @@ structure Args = struct
   val getM = get #"m"
   val getA = get #"a"
   val getL = get #"l"
+  val getO = get #"o"
 
   fun parse args = getopt opts (List.::) [] args
 end
@@ -1387,6 +1390,12 @@ structure Main = struct
       val automaton = Automaton.makeAutomaton grammar
       val Parse.Ast.Grammar (_, tokens, _) = ast
       val lexFileName = Args.getL opts
+      val dir = case Args.getO opts of
+                     SOME out => SOME (OS.Path.dir out)
+                   | NONE =>
+                       case inFileName of
+                            SOME name => SOME (OS.Path.dir name)
+                          | NONE => NONE
     in
       (* Print the grammar as comment *)
       TextIO.output (outs, "(*\n");
@@ -1406,11 +1415,15 @@ structure Main = struct
          | NONE => ();
 
       (* Generate files for building *)
-      case Args.getM opts of
-           SOME m => (
-             ResourceGen.generateResources m;
-             ResourceGen.expandResources m lexFileName)
-         | NONE => ()
+      case dir of
+           NONE => ()
+         | SOME dir =>
+             case Args.getM opts of
+                  SOME m => (
+                    ResourceGen.generateResources m dir;
+                    ResourceGen.expandResources m dir lexFileName)
+                | NONE => ();
+      ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
 end
@@ -1424,9 +1437,15 @@ fun main () =
     case sources of
          [] => Main.generate TextIO.stdIn NONE TextIO.stdOut []
        | [fileName] =>
-           Util.withTextIn fileName (fn ins =>
-           Util.withTextOut (replaceExt (fileName, "sml")) (fn outs =>
+           let
+             val outFileName = case Args.getO opts of
+                                    SOME out => out
+                                  | NONE => replaceExt (fileName, "sml")
+           in
+             Util.withTextIn fileName (fn ins =>
+             Util.withTextOut outFileName (fn outs =>
              Main.generate ins (SOME fileName) outs opts))
+           end
        | _ => raise Fail "multiple input files"
   end
   handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
