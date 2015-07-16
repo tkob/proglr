@@ -1421,7 +1421,7 @@ fun main () =
       let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
   in
     case sources of
-         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut opts
+         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut []
        | [fileName] =>
            Util.withTextIn fileName (fn ins =>
            Util.withTextOut (replaceExt (fileName, "sml")) (fn outs =>
