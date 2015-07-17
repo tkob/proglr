@@ -12,3 +12,15 @@ structure Main = struct
          OS.Process.success
        end
 end
+
+ifelse(PROGLR_COMPILER,`mlton', `
+fun main () =
+  let
+    val name = CommandLine.name ()
+    val arguments = CommandLine.arguments ()
+  in
+      OS.Process.exit (Main.main (name, arguments))
+  end
+
+val _ = main ()
+')

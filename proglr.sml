@@ -1302,14 +1302,16 @@ structure ResourceGen = struct
         let
           val resources =
                 case m of
-                     "mlton" => ["boot.sml.m4",
-                                 "main.mlb.m4",
+                     "mlton" => ["main.mlb.m4",
                                  "main.sml.m4"]
-                   | _       => ["boot.sml.m4",
-                                 "main.sml.m4"]
-          val defs = case l of
+                   | _       => ["main.sml.m4"]
+          val compDefs = case m of
+                              "mlton" => ["-DPROGLR_COMPILER=mlton"]
+                            | _ => []
+          val scanDefs = case l of
                           SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
                         | NONE => []
+          val defs = compDefs @ scanDefs
         in
           List.app
             (fn r => expand defs r (OS.Path.concat (dir, OS.Path.base r)))

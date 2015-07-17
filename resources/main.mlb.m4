@@ -9,4 +9,3 @@ $(SML_LIB)/mllpt-lib/mllpt-lib.mlb
 PROGLR_PARSE_SML
 PROGLR_SCAN_SML
 PROGLR_MAIN_SML
-boot.sml
