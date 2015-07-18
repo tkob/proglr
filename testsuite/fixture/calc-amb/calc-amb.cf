@@ -1,0 +1,14 @@
+token Add "+" ;
+token Sub "-" ;
+token Mul "*" ;
+token Div "/" ;
+token LParen "(" ;
+token RParen ")" ;
+token Integer of int;
+
+EAdd. Exp ::= Exp "+" Exp ; 
+ESub. Exp ::= Exp "-" Exp ; 
+EMul. Exp ::= Exp "*" Exp ; 
+EDiv. Exp ::= Exp "/" Exp ; 
+EInt. Exp ::= Integer ; 
+_.    Exp ::= "(" Exp ")" ; 

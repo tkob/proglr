@@ -8,6 +8,9 @@ proglr: parse.sml scan.ulex.sml resource.sml proglr.sml boot.sml
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
+test: proglr
+	runtest --tool mlton
+
 $(MKRESOURCE): mkresource.sml mkresource-boot.sml
 	mlton -output $(MKRESOURCE) mkresource.mlb
 

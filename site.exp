@@ -1,0 +1,40 @@
+# vim: set filetype=tcl :
+
+# config file for DejaGnu (runtest)
+
+set srcdir [file normalize ./testsuite]
+set outdir [file normalize ./testsuite/log]
+
+set proglr [pwd]/proglr
+
+# definitions of common procedures
+
+if { [catch {package require fileutil}] } {
+    namespace eval fileutil { proc tempdir {} { return $outdir } }
+}
+
+proc mktempdir {prefix} {
+    set chars abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+    set numchars [string length $chars]
+    set numtrial 10
+    set namelen 10
+    for {set i 0} {$i < $numtrial} {incr i} {
+        set path [::fileutil::tempdir]/$prefix
+        for {set j 0} {$j < $namelen} {incr j} {
+            append path [string index $chars [expr {int(rand() * $numchars)}]]
+        }
+        if {![file exists $path]} {
+            # note that we have race condition here
+            file mkdir $path
+            file attributes $path -permissions 0700
+            return $path
+        }
+    }
+    error "failed to find an unused temporary directory name"
+}
+
+proc exitstatus {} {
+    foreach {pid spawnid oserror status} [wait] {}
+    return $status
+}
+
