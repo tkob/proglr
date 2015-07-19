@@ -1,4 +1,4 @@
-ifdef(`PROGLR_PARSE_SML', , `define(`PROGLR_PARSE_SML', `parse.sml')')
+ifdef(`PROGLR_PARSE_SML', , `define(`PROGLR_PARSE_SML', `')')
 ifdef(`PROGLR_SCAN_SML', , `define(`PROGLR_SCAN_SML', `')')
 ifdef(`PROGLR_MAIN_SML', , `define(`PROGLR_MAIN_SML', `main.sml')')
 

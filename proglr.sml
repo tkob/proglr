@@ -1320,7 +1320,7 @@ structure ResourceGen = struct
           List.app emitResource Resource.resources
         end
 
-  fun expandResources m dir l =
+  fun expandResources m dir p l =
         let
           val resources =
                 case m of
@@ -1330,10 +1330,13 @@ structure ResourceGen = struct
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
                             | _ => []
+          val parseDefs = case p of
+                               SOME f => ["-DPROGLR_PARSE_SML=" ^ f]
+                             | NONE => []
           val scanDefs = case l of
                           SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
                         | NONE => []
-          val defs = compDefs @ scanDefs
+          val defs = compDefs @ parseDefs @ scanDefs
         in
           List.app
             (fn r => expand defs r (OS.Path.concat (dir, OS.Path.base r)))
@@ -1395,7 +1398,7 @@ structure Main = struct
         Util.withTextOut fileName (fn outs =>
         Automaton.printAutomaton outs automaton)
 
-  fun generate ins inFileName outs opts =
+  fun generate ins inFileName outs outFileName opts =
     let
       val strm = Lexer.streamifyInstream ins
       val sourcemap =
@@ -1445,7 +1448,7 @@ structure Main = struct
              case Args.getM opts of
                   SOME m => (
                     ResourceGen.generateResources m dir;
-                    ResourceGen.expandResources m dir lexFileName)
+                    ResourceGen.expandResources m dir outFileName lexFileName)
                 | NONE => ();
       ()
     end
@@ -1459,7 +1462,7 @@ fun main () =
       let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
   in
     case sources of
-         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut []
+         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut NONE []
        | [fileName] =>
            let
              val outFileName = case Args.getO opts of
@@ -1468,7 +1471,7 @@ fun main () =
            in
              Util.withTextIn fileName (fn ins =>
              Util.withTextOut outFileName (fn outs =>
-             Main.generate ins (SOME fileName) outs opts))
+             Main.generate ins (SOME fileName) outs (SOME outFileName) opts))
            end
        | _ => raise Fail "multiple input files"
   end
