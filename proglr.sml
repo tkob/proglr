@@ -1019,7 +1019,7 @@ structure CodeGenerator = struct
     let
       val n = Int.toString stateNumber
       val (reduce, shift) = Automaton.stateOf stateNumber automaton
-      fun stReduce item = 
+      fun stReduce (reduceIndex, item) =
         let
           val cons = LrItem.consOf item
           val lhs = LrItem.lhsOf item
@@ -1095,7 +1095,7 @@ structure CodeGenerator = struct
           ])
         end
     in
-      (if shift = [] then [] else [st]) @ map stReduce reduce
+      (if shift = [] then [] else [st]) @ map stReduce (Util.addIndex reduce)
     end
 
   fun generateParser outs grammar automaton =
