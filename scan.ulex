@@ -28,6 +28,7 @@
 <INITIAL> ":" => (Colon);
 <INITIAL> token => (TokenKw);
 <INITIAL> of => (OfKw);
+<INITIAL> comment => (CommentKw);
 <INITIAL> separator => (SeparatorKw);
 <INITIAL> terminator => (TerminatorKw);
 <INITIAL> nonempty => (NonemptyKw);

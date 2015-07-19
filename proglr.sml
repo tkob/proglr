@@ -292,6 +292,8 @@ structure Grammar :> GRAMMAR = struct
                 nontermsOfDef def (nontermsOfDefs defs syms)
           and nontermsOfDef (Parse.Ast.Rule (_, label, cat, items)) syms =
                 nontermsOfCat cat syms
+            | nontermsOfDef (Parse.Ast.Comment (span, _)) syms = syms
+            | nontermsOfDef (Parse.Ast.Comments (span, _, _)) syms = syms
             | nontermsOfDef (Parse.Ast.Separator (span, minimumsize, cat, separator)) syms =
                 nontermsOfCat (Parse.Ast.ListCat (span, cat)) syms
             | nontermsOfDef (Parse.Ast.Terminator (span, minimumsize, cat, terminator)) syms =
@@ -362,6 +364,8 @@ structure Grammar :> GRAMMAR = struct
                 in
                   (cons, lhs, rhs)::rules
                 end
+            | rulesOfDef (Parse.Ast.Comment (span, _)) rules = rules
+            | rulesOfDef (Parse.Ast.Comments (span, _, _)) rules = rules
             | rulesOfDef (Parse.Ast.Separator (span, minimumsize, cat, separator)) rules =
                 (* expand separator macro *)
                 let

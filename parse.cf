@@ -14,6 +14,7 @@ token Double of real;
 token Char of char;
 token String of string;
 token Ident of string;
+token CommentKw "comment";
 token SeparatorKw "separator";
 token TerminatorKw "terminator";
 token NonemptyKw "nonempty";
@@ -55,6 +56,8 @@ ListCons . Label ::= "(" ":" ")" ;
 ListOne  . Label ::= "(" ":" "[" "]" ")" ;
 
 -- Pragmas
+Comment  .  Def ::= "comment" String ;
+Comments .  Def ::= "comment" String String ;
 Separator.  Def ::= "separator" MinimumSize Cat String ;
 Terminator. Def ::= "terminator" MinimumSize Cat String ;
 Coercions.  Def ::= "coercions" Ident Integer ;
