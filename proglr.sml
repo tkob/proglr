@@ -1010,7 +1010,10 @@ structure CodeGenerator = struct
       val reduceExp =
         if reduce = [] then ""
         else " @ List.concat [" ^
-             "st" ^ stNum ^ "r" ^ " (stackItem::stack) toPos"
+             String.concatWith ", "
+                               (map (fn (index, _) =>
+                                      "st" ^ stNum ^ "r" ^ Int.toString index ^ " (stackItem::stack) toPos")
+                                    (Util.addIndex reduce))
              ^ "]"
       val exp = MLAst.AsisExp (shiftExp ^ reduceExp)
     in
@@ -1071,7 +1074,7 @@ structure CodeGenerator = struct
             | Grammar.ListOne => MLAst.AsisExp ("[" ^ hd svalues ^ "]")
           val currentAst = MLAst.AppExp (MLAst.AsisExp (symToCategory lhs), svaluesAst)
         in
-          ("st" ^ n ^ "r",
+          ("st" ^ n ^ "r" ^ Int.toString reduceIndex,
               if lhs = Grammar.S' then
                 [(map MLAst.AsisPat ["stack", "pos"], MLAst.AsisExp "[(~1, stack)]")]
               else
@@ -1184,7 +1187,12 @@ structure CodeGenerator = struct
         let
           val (reduce, shift) = Automaton.stateOf 0 automaton
         in
-          if reduce = [] then "" else " @ st0r [] pos"
+          if reduce = [] then ""
+          else " @ List.concat ["
+               ^ String.concatWith ", " (map (fn (index, _) =>
+                                               "st0r" ^ Int.toString index ^ " [] pos")
+                                             (Util.addIndex reduce))
+               ^"]"
         end
       val parseFun = MLAst.Fun [
         ("parse", [([MLAst.AsisPat "sourcemap", MLAst.AsisPat "strm"],
