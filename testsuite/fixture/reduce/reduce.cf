@@ -1,0 +1,7 @@
+token Integer of int ;
+
+S1. S ::= I ;
+S2. S ::= J ;
+
+I. I ::= Integer ;
+J. J ::= Integer ;
