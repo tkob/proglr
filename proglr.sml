@@ -371,7 +371,10 @@ structure Grammar :> GRAMMAR = struct
                 in
                   case minimumsize of
                       Parse.Ast.MEmpty _ =>
-                        rulesOfDef consCase (rulesOfDef oneCase (rulesOfDef emptyCase rules))
+                        if separator = "" then
+                          rulesOfDef consCase (rulesOfDef emptyCase rules)
+                        else
+                          rulesOfDef consCase (rulesOfDef oneCase (rulesOfDef emptyCase rules))
                     | Parse.Ast.MNonempty _ =>
                         rulesOfDef consCase (rulesOfDef oneCase rules)
                 end
