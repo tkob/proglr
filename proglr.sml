@@ -1009,7 +1009,9 @@ structure CodeGenerator = struct
         else "[(" ^ stNum ^ ", (stackItem::stack))]" 
       val reduceExp =
         if reduce = [] then ""
-        else " @ st" ^ stNum ^ "r (stackItem::stack) toPos"
+        else " @ List.concat [" ^
+             "st" ^ stNum ^ "r" ^ " (stackItem::stack) toPos"
+             ^ "]"
       val exp = MLAst.AsisExp (shiftExp ^ reduceExp)
     in
       (pat, exp)
@@ -1069,17 +1071,17 @@ structure CodeGenerator = struct
             | Grammar.ListOne => MLAst.AsisExp ("[" ^ hd svalues ^ "]")
           val currentAst = MLAst.AppExp (MLAst.AsisExp (symToCategory lhs), svaluesAst)
         in
-          ("st" ^ n ^ "r", [
+          ("st" ^ n ^ "r",
               if lhs = Grammar.S' then
-                (map MLAst.AsisPat ["stack", "pos"],
-                 MLAst.AsisExp "[(~1, stack)]")
+                [(map MLAst.AsisPat ["stack", "pos"], MLAst.AsisExp "[(~1, stack)]")]
               else
-                (map MLAst.AsisPat ["(" ^ stackPatString ^ "stack)", "pos"],
                 if isYpsilon then
-                  MLAst.AsisExp ("go " ^ n ^ " stack " ^ MLAst.showExp currentAst ^ " (pos, pos)")
+                  [(map MLAst.AsisPat ["stack", "pos"],
+                    MLAst.AsisExp ("go " ^ n ^ " stack " ^ MLAst.showExp currentAst ^ " (pos, pos)"))]
                 else
-                  MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst ^ " (pos0, pos)"))
-          ])
+                  [(map MLAst.AsisPat ["(" ^ stackPatString ^ "stack)", "pos"],
+                    MLAst.AsisExp ("go stNum0 stack " ^ MLAst.showExp currentAst ^ " (pos0, pos)")),
+                   (map MLAst.AsisPat ["stack", "pos"], MLAst.AsisExp "[]")])
         end
       val st = 
         let
