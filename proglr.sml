@@ -12,6 +12,15 @@ structure Util = struct
   fun minus (xs, ys) = List.foldr (fn (y, xs) => remove (y, xs)) xs ys
   fun uniq xs = List.foldr add [] xs
   
+  (*  addIndex : 'a list -> (int * 'a) list *)
+  fun addIndex xs =
+        let
+          fun addIndex' (n, [], acc) = rev acc
+            | addIndex' (n, x::xs, acc) = addIndex' (n + 1, xs, (n, x)::acc)
+        in
+          addIndex' (0, xs, [])
+        end
+
   fun dropWhile p [] = []
     | dropWhile p (x::xs) = if p x then dropWhile p xs else x::xs
   
