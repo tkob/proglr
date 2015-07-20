@@ -54,9 +54,9 @@ ifdef(`PROGLR_BLOCK_COMMENT_OPEN', `
 <IN_COMMENT> . => (continue ());
 ')
 
-ifdef(`PROGLR_LINE_COMMENT', `
-<INITIAL> PROGLR_LINE_COMMENT [^\n]* [\n] => (continue ());
-')
+define(`line_comments',`ifelse($1,,,`<INITIAL> "$1" [^\n]* [\n] => (continue ());
+line_comments(shift($@))')')
+line_comments(PROGLR_LINE_COMMENT)
 
 define(`keywords',`ifelse($2,,,`<INITIAL> "$2" => ($1);
 keywords(shift(shift($@)))')')

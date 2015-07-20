@@ -14,3 +14,5 @@ EDiv. Exp1 ::= Exp1 "/" Exp2 ;
 _.    Exp1 ::= Exp2 ;
 EInt. Exp2 ::= Integer ; 
 _.    Exp2 ::= "(" Exp ")" ; 
+
+comment "//" ;

@@ -1349,7 +1349,7 @@ structure ResourceGen = struct
 
   fun generateLexer l ast =
         let
-          val Parse.Ast.Grammar (_, tokens, _) = ast
+          val Parse.Ast.Grammar (_, tokens, defs') = ast
           fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
                 SOME "-DPROGLR_USE_INTEGER"
             | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
@@ -1367,7 +1367,12 @@ structure ResourceGen = struct
             | kw _ = NONE
           val kwDef = "-DPROGLR_KEYWORDS=" ^
                       String.concatWith "," (List.mapPartial kw tokens)
-          val defs = kwDef :: flagDefs
+          fun comment (Parse.Ast.Comment (_, s)) = SOME (Util.escapeUnicode s)
+            | comment _ = NONE
+          val commentDef =
+                "-DPROGLR_LINE_COMMENT="
+                ^  String.concatWith "," (List.mapPartial comment defs')
+          val defs = kwDef :: commentDef :: flagDefs
           fun expandLexer () = expand defs "scan.ulex.m4" l
           fun generateSml () =
                 let
