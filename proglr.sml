@@ -1347,8 +1347,9 @@ structure ResourceGen = struct
             resources
         end
 
-  fun generateLexer l tokens =
+  fun generateLexer l ast =
         let
+          val Parse.Ast.Grammar (_, tokens, _) = ast
           fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
                 SOME "-DPROGLR_USE_INTEGER"
             | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
@@ -1419,7 +1420,6 @@ structure Main = struct
       val ast = case asts of [ast] => ast | _ => raise Fail "parsing failed"
       val grammar = Grammar.fromAst ast
       val automaton = Automaton.makeAutomaton grammar
-      val Parse.Ast.Grammar (_, tokens, _) = ast
       val lexFileName = Args.getL opts
       val dir = case Args.getO opts of
                      SOME out => SOME (OS.Path.dir out)
@@ -1442,7 +1442,7 @@ structure Main = struct
 
       (* Generate lexer file if "-l" option is specified *)
       case lexFileName of
-           SOME l => ResourceGen.generateLexer l tokens
+           SOME l => ResourceGen.generateLexer l ast
          | NONE => ();
 
       (* Generate files for building *)
