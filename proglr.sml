@@ -1372,7 +1372,13 @@ structure ResourceGen = struct
           val commentDef =
                 "-DPROGLR_LINE_COMMENT="
                 ^  String.concatWith "," (List.mapPartial comment defs')
-          val defs = kwDef :: commentDef :: flagDefs
+          fun comments (Parse.Ast.Comments (_, opn, cls)) =
+                SOME (Util.escapeUnicode opn ^ "," ^ Util.escapeUnicode cls)
+            | comments _ = NONE
+          val commentsDef =
+                "-DPROGLR_BLOCK_COMMENT="
+                ^  String.concatWith "," (List.mapPartial comments defs')
+          val defs = kwDef :: commentDef :: commentsDef :: flagDefs
           fun expandLexer () = expand defs "scan.ulex.m4" l
           fun generateSml () =
                 let

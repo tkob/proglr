@@ -8,7 +8,7 @@ ifdef(`PROGLR_TOKEN_STR', , `define(`PROGLR_TOKEN_STR', `Token')')
 );
 
 %name Lexer;
-%states INITIAL IN_CHAR IN_STRING IN_COMMENT;
+%states INITIAL IN_CHAR IN_STRING ;
 
 %let digit = [0-9];
 %let char = [\u0020-\u007e];
@@ -48,11 +48,9 @@ ifdef(`PROGLR_USE_IDENT', `
 <INITIAL> {letter} ({letter} | {digit} | "_" | "\u0027")* => (Ident yytext);
 ')
 
-ifdef(`PROGLR_BLOCK_COMMENT_OPEN', `
-<INITIAL> PROGLR_BLOCK_COMMENT_OPEN => (YYBEGIN IN_COMMENT; continue ());
-<IN_COMMENT> PROGLR_BLOCK_COMMENT_CLOSE => (YYBEGIN INITIAL; continue ());
-<IN_COMMENT> . => (continue ());
-')
+define(`block_comments',`ifelse($2,,,`<INITIAL> "$1" .* "$2"=> (continue ());
+block_comments(shift(shift($@)))')')
+block_comments(PROGLR_BLOCK_COMMENT)
 
 define(`line_comments',`ifelse($1,,,`<INITIAL> "$1" [^\n]* [\n] => (continue ());
 line_comments(shift($@))')')
@@ -60,7 +58,6 @@ line_comments(PROGLR_LINE_COMMENT)
 
 define(`keywords',`ifelse($2,,,`<INITIAL> "$2" => ($1);
 keywords(shift(shift($@)))')')
-
 keywords(PROGLR_KEYWORDS)
 
 <INITIAL> {space}+ => (continue ());

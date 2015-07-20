@@ -16,3 +16,4 @@ EInt. Exp2 ::= Integer ;
 _.    Exp2 ::= "(" Exp ")" ; 
 
 comment "//" ;
+comment "/*" "*/";
