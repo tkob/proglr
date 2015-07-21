@@ -4,7 +4,7 @@ Proglr: GLR Parser Generator for Standard ML
 
 ## Quick Start
 
-Assuming you have mlton installed, to run calc example, type:
+Assuming you have mlton and ml-ulex installed, to run calc example, type:
 
 ```
 $ make -f Makefile.mlton
