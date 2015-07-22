@@ -32,6 +32,9 @@ debug: parse.sml scan.ulex.sml resource.sml proglr.sml boot.sml
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
 
+check: proglr
+	runtest --tool poly
+
 $(MKRESOURCE): mkresource.sml
 	polyc -o $(MKRESOURCE) mkresource.sml
 
