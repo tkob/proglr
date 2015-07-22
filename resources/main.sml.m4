@@ -28,7 +28,10 @@ structure Main = struct
        end
 end
 
-ifelse(PROGLR_COMPILER,`mlton', `
+ifelse(PROGLR_COMPILER,`mlton', `define(`PROGLR_MAIN_FUN')')
+ifelse(PROGLR_COMPILER,`poly', `define(`PROGLR_MAIN_FUN')')
+
+ifdef(`PROGLR_MAIN_FUN',`
 fun main () =
   let
     val name = CommandLine.name ()
@@ -36,6 +39,10 @@ fun main () =
   in
       OS.Process.exit (Main.main (name, arguments))
   end
+')
 
+ifelse(PROGLR_COMPILER,`mlton', `define(`PROGLR_BOOT_VAL')')
+
+ifdef(`PROGLR_BOOT_VAL',`
 val _ = main ()
 ')

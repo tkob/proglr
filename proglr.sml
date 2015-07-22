@@ -1304,8 +1304,7 @@ structure ResourceGen = struct
       ignore (List.foldl concatAndMake parent arcs)
     end
 
-  fun generateResources "mlton" dir = ()
-    | generateResources m dir =
+  fun generateResources m dir =
         let
           fun emitResource ("", _) = ()
             | emitResource (path, content) =
@@ -1320,19 +1319,28 @@ structure ResourceGen = struct
                     BinIO.output (outs, content))
                   end
                 end
+          val smlnjLib = List.filter (String.isPrefix "smlnj-lib" o #1) Resource.resources
+          val mlLpt = List.filter (String.isPrefix "ml-lpt" o #1) Resource.resources
+          val polyBuild = List.filter (fn (n, _) => n = "polybuild.tcl") Resource.resources
+          val resources =
+            case m of
+                 "mlton" => []
+               | "poly" => polyBuild @ smlnjLib @ mlLpt
+               | _ => Resource.resources
         in
-          List.app emitResource Resource.resources
+          List.app emitResource resources
         end
 
   fun expandResources m dir p l =
         let
           val resources =
                 case m of
-                     "mlton" => ["main.mlb.m4",
-                                 "main.sml.m4"]
+                     "mlton" => ["main.mlb.m4", "main.sml.m4"]
+                   | "poly" => ["main.sml.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
+                            | "poly" => ["-DPROGLR_COMPILER=poly"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f]
