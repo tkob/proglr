@@ -1336,7 +1336,7 @@ structure ResourceGen = struct
           val resources =
                 case m of
                      "mlton" => ["main.mlb.m4", "main.sml.m4"]
-                   | "poly" => ["main.sml.m4"]
+                   | "poly" => ["main.sml.m4", "Makefile.poly.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
@@ -1346,7 +1346,8 @@ structure ResourceGen = struct
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f]
                              | NONE => []
           val scanDefs = case l of
-                          SOME f => ["-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
+                          SOME f => ["-DPROGLR_SCAN_ULEX=" ^ f,
+                                     "-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
                         | NONE => []
           val defs = compDefs @ parseDefs @ scanDefs
         in
