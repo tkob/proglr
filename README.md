@@ -39,3 +39,15 @@ $ ../../proglr -m alice -o parse.sml -l scan.ulex calc.cf
 $ make -f Makefile.alice
 $ alicerun main sample.txt
 ```
+
+### MLKit
+
+Assuming you have compiled proglr by MLton or Poly/ML,
+and installed mlkit and ml-ulex, to run calc example, type:
+
+```
+$ cd example/calc
+$ ../../proglr -m mlkit -o parse.sml -l scan.ulex calc.cf
+$ mlkit -output main main.mlb
+$ ./main sample.txt
+```

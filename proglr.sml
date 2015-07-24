@@ -1325,6 +1325,7 @@ structure ResourceGen = struct
           val resources =
             case m of
                  "mlton" => []
+               | "mlkit" => smlnjLib @ mlLpt
                | "poly" => polyBuild @ smlnjLib @ mlLpt
                | "alice" => smlnjLib @ mlLpt
                | _ => Resource.resources
@@ -1337,11 +1338,13 @@ structure ResourceGen = struct
           val resources =
                 case m of
                      "mlton" => ["main.mlb.m4", "main.sml.m4"]
+                   | "mlkit" => ["main.mlb.m4", "main.sml.m4"]
                    | "poly" => ["main.sml.m4", "Makefile.poly.m4"]
                    | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
+                            | "mlkit" => ["-DPROGLR_COMPILER=mlkit"]
                             | "poly" => ["-DPROGLR_COMPILER=poly"]
                             | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | _ => []
