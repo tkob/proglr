@@ -1326,6 +1326,7 @@ structure ResourceGen = struct
             case m of
                  "mlton" => []
                | "poly" => polyBuild @ smlnjLib @ mlLpt
+               | "alice" => smlnjLib @ mlLpt
                | _ => Resource.resources
         in
           List.app emitResource resources
@@ -1337,17 +1338,21 @@ structure ResourceGen = struct
                 case m of
                      "mlton" => ["main.mlb.m4", "main.sml.m4"]
                    | "poly" => ["main.sml.m4", "Makefile.poly.m4"]
+                   | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
                             | "poly" => ["-DPROGLR_COMPILER=poly"]
+                            | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | _ => []
           val parseDefs = case p of
-                               SOME f => ["-DPROGLR_PARSE_SML=" ^ f]
+                               SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
+                                          "-DPROGLR_PARSE_ALC=" ^ OS.Path.base f ^ ".alc"]
                              | NONE => []
           val scanDefs = case l of
                           SOME f => ["-DPROGLR_SCAN_ULEX=" ^ f,
-                                     "-DPROGLR_SCAN_SML=" ^ f ^ ".sml"]
+                                     "-DPROGLR_SCAN_SML=" ^ f ^ ".sml",
+                                     "-DPROGLR_SCAN_ALC=" ^ f ^ ".alc"]
                         | NONE => []
           val defs = compDefs @ parseDefs @ scanDefs
         in
@@ -1394,7 +1399,12 @@ structure ResourceGen = struct
                   val args = ["ml-ulex", l]
                   fun f outs = ()
                 in
-                  Util.withBinOut "/dev/null" (fn outs => spawn args outs f)
+                  Util.withBinOut "/dev/null" (fn outs => spawn args outs f);
+                  OS.Process.system
+                    ("perl -i -pne "
+                    ^ "'s/c1 <= c andalso c <= c2/Word.<=(c1, c) andalso Word.<=(c, c2)/' "
+                    ^ l ^ ".sml");
+                  ()
                 end
         in
           expandLexer ();
