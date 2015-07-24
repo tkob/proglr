@@ -1322,12 +1322,14 @@ structure ResourceGen = struct
           val smlnjLib = List.filter (String.isPrefix "smlnj-lib" o #1) Resource.resources
           val mlLpt = List.filter (String.isPrefix "ml-lpt" o #1) Resource.resources
           val polyBuild = List.filter (fn (n, _) => n = "polybuild.tcl") Resource.resources
+          val position = List.filter (fn (n, _) => n = "position.sml") Resource.resources
           val resources =
             case m of
                  "mlton" => []
                | "mlkit" => smlnjLib @ mlLpt
                | "poly" => polyBuild @ smlnjLib @ mlLpt
                | "alice" => smlnjLib @ mlLpt
+               | "mosml" => position @ smlnjLib @ mlLpt
                | _ => Resource.resources
         in
           List.app emitResource resources
@@ -1341,12 +1343,14 @@ structure ResourceGen = struct
                    | "mlkit" => ["main.mlb.m4", "main.sml.m4"]
                    | "poly" => ["main.sml.m4", "Makefile.poly.m4"]
                    | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
+                   | "mosml" => ["main.sml.m4", "Makefile.mosml.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
                             | "mlkit" => ["-DPROGLR_COMPILER=mlkit"]
                             | "poly" => ["-DPROGLR_COMPILER=poly"]
                             | "alice" => ["-DPROGLR_COMPILER=alice"]
+                            | "mosml" => ["-DPROGLR_COMPILER=mosml"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,

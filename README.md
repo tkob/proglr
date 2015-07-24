@@ -51,3 +51,16 @@ $ ../../proglr -m mlkit -o parse.sml -l scan.ulex calc.cf
 $ mlkit -output main main.mlb
 $ ./main sample.txt
 ```
+
+### Moscow ML
+
+Assuming you have compiled proglr by MLton or Poly/ML,
+and installed mosml and ml-ulex, to run calc example, type:
+
+```
+$ cd example/calc
+$ ../../proglr -m mosml -o parse.sml -l scan.ulex calc.cf
+$ make -f Makefile.mosml depend
+$ make -f Makefile.mosml
+$ ./main sample.txt
+```

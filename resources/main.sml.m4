@@ -32,6 +32,7 @@ ifelse(PROGLR_COMPILER,`mlton', `define(`PROGLR_MAIN_FUN')')
 ifelse(PROGLR_COMPILER,`mlkit', `define(`PROGLR_MAIN_FUN')')
 ifelse(PROGLR_COMPILER,`poly', `define(`PROGLR_MAIN_FUN')')
 ifelse(PROGLR_COMPILER,`alice', `define(`PROGLR_MAIN_FUN')')
+ifelse(PROGLR_COMPILER,`mosml', `define(`PROGLR_MAIN_FUN')')
 
 ifdef(`PROGLR_MAIN_FUN',`
 fun main () =
@@ -46,6 +47,7 @@ fun main () =
 ifelse(PROGLR_COMPILER,`mlton', `define(`PROGLR_BOOT_VAL')')
 ifelse(PROGLR_COMPILER,`mlkit', `define(`PROGLR_BOOT_VAL')')
 ifelse(PROGLR_COMPILER,`alice', `define(`PROGLR_BOOT_VAL')')
+ifelse(PROGLR_COMPILER,`mosml', `define(`PROGLR_BOOT_VAL')')
 
 ifdef(`PROGLR_BOOT_VAL',`
 val _ = main ()
