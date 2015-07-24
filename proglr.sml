@@ -1399,7 +1399,12 @@ structure ResourceGen = struct
                   val args = ["ml-ulex", l]
                   fun f outs = ()
                 in
-                  Util.withBinOut "/dev/null" (fn outs => spawn args outs f)
+                  Util.withBinOut "/dev/null" (fn outs => spawn args outs f);
+                  OS.Process.system
+                    ("perl -i -pne "
+                    ^ "'s/c1 <= c andalso c <= c2/Word.<=(c1, c) andalso Word.<=(c, c2)/' "
+                    ^ l ^ ".sml");
+                  ()
                 end
         in
           expandLexer ();
