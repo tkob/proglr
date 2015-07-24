@@ -1343,7 +1343,7 @@ structure ResourceGen = struct
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
                             | "poly" => ["-DPROGLR_COMPILER=poly"]
-                            | "alice" => ["-DPROGLR_COMPILER=poly"]
+                            | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
