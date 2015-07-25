@@ -2,6 +2,7 @@
 # vim: set filetype=tcl : \
 exec expect -f "$0" ${1+"$@"}
 
+set timeout -1
 set prompt "\n> "
 set errmsg "Error"
 
