@@ -1403,7 +1403,7 @@ structure ResourceGen = struct
           fun expandLexer () = expand defs "scan.ulex.m4" l
           fun generateSml () =
                 let
-                  val args = ["ml-ulex", l]
+                  val args = ["ml-ulex", "--table-based", "--strict-sml", l]
                   fun f outs = ()
                 in
                   Util.withBinOut "/dev/null" (fn outs => spawn args outs f);
