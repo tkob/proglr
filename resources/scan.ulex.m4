@@ -18,6 +18,18 @@ ifdef(`PROGLR_TOKEN_STR', , `define(`PROGLR_TOKEN_STR', `Token')')
 %let quot = ["];
 %let backslash = [\\];
 
+define(`block_comments',`ifelse($2,,,`<INITIAL> "$1" .* "$2"=> (continue ());
+block_comments(shift(shift($@)))')')
+block_comments(PROGLR_BLOCK_COMMENT)
+
+define(`line_comments',`ifelse($1,,,`<INITIAL> "$1" [^\n]* [\n] => (continue ());
+line_comments(shift($@))')')
+line_comments(PROGLR_LINE_COMMENT)
+
+define(`keywords',`ifelse($2,,,`<INITIAL> "$2" => ($1);
+keywords(shift(shift($@)))')')
+keywords(PROGLR_KEYWORDS)
+
 ifdef(`PROGLR_USE_INTEGER', `
 (* Integer of integers, defined digit+ *)
 <INITIAL> {digit}+ => (Integer (Option.valOf (Int.fromString (yytext))));
@@ -47,17 +59,5 @@ ifdef(`PROGLR_USE_IDENT', `
 (* Ident of identifiers, defined letter (letter | digit | ’_’ | ’\’’)* *)
 <INITIAL> {letter} ({letter} | {digit} | "_" | "\u0027")* => (Ident yytext);
 ')
-
-define(`block_comments',`ifelse($2,,,`<INITIAL> "$1" .* "$2"=> (continue ());
-block_comments(shift(shift($@)))')')
-block_comments(PROGLR_BLOCK_COMMENT)
-
-define(`line_comments',`ifelse($1,,,`<INITIAL> "$1" [^\n]* [\n] => (continue ());
-line_comments(shift($@))')')
-line_comments(PROGLR_LINE_COMMENT)
-
-define(`keywords',`ifelse($2,,,`<INITIAL> "$2" => ($1);
-keywords(shift(shift($@)))')')
-keywords(PROGLR_KEYWORDS)
 
 <INITIAL> {space}+ => (continue ());
