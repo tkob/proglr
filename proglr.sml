@@ -65,6 +65,14 @@ structure Util = struct
   fun withTextOut name = bracket (TextIO.openOut name) TextIO.closeOut
   fun withBinIn name = bracket (BinIO.openIn name) BinIO.closeIn
   fun withBinOut name = bracket (BinIO.openOut name) BinIO.closeOut
+
+  fun iota n =
+        let
+          fun iota' (0, l) = l
+            | iota' (n, l) = iota' (n - 1, (n - 1)::l)
+        in
+          iota' (n, [])
+        end
 end
 
 signature INTERN = sig
