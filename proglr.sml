@@ -894,13 +894,11 @@ structure CodeGenerator = struct
       | Grammar.Nonterm  => SOME (MLAst.Tycon (prefix ^ (nt2dt sym) ^ suffix level))
     end
 
+  fun addPrimes s 0 = s
+    | addPrimes s n = addPrimes s (n - 1) ^ "'"
+
   fun symToCategory sym =
-    let
-      fun addPrimes s 0 = s
-        | addPrimes s n = addPrimes s (n - 1) ^ "'"
-    in
-      addPrimes (Grammar.identOfSymbol sym) (Grammar.levelOf sym)
-    end
+        addPrimes (Grammar.identOfSymbol sym) (Grammar.levelOf sym)
 
   (* string -> Grammar.symbol list -> MLAst.dec *)
   (* example output: datatype token = EOF | ... *)
