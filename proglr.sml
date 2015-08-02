@@ -968,6 +968,74 @@ structure CodeGenerator = struct
       MLAst.Datatype (List.map makeDatatype idents)
     end
 
+  fun makeShowAstFun rules =
+    let
+      val lhss = map Grammar.lhsOf rules
+      val typeNameOfSym = Util.chopDigit o Grammar.identOfSymbol
+      fun symToTriple sym =
+            let
+              val typeName = typeNameOfSym sym
+              val level = Grammar.levelOf sym
+              val kind = Grammar.kindOf sym
+            in
+              (typeName, level, kind)
+            end
+      val triples = Util.uniq (map symToTriple lhss)
+      (* string * int -> fvalbind i.e. ident * (pat list * exp) list *)
+      fun makeFun (typeName, level, kind) =
+            let
+              fun funNameOf (typeName, 0, Grammar.IntTerm) =
+                    "Int.toString"
+                | funNameOf (typeName, 0, Grammar.StrTerm) =
+                    "String.toString"
+                | funNameOf (typeName, 0, Grammar.CharTerm) =
+                    "String.str"
+                | funNameOf (typeName, 0, Grammar.RealTerm) =
+                    "Real.toString"
+                | funNameOf (typeName, level, _) =
+                    "show" ^ addPrimes typeName level
+              val rules = List.filter (fn rule => (typeNameOfSym o Grammar.lhsOf) rule = typeName) rules
+              fun ruleToBody rule =
+                    case Grammar.consOf rule of
+                         Grammar.Wild     => NONE
+                       | Grammar.ListE    => NONE
+                       | Grammar.ListCons => NONE
+                       | Grammar.ListOne  => NONE
+                       | Grammar.Id ident =>
+                           let
+                             fun hasValue sym =
+                                   case Grammar.kindOf sym of
+                                        Grammar.UnitTerm => false
+                                      |  _ => true
+                             val rhs' = map symToTriple (List.filter hasValue (Grammar.rhsOf rule))
+                             val card = length rhs'
+                             val vars = map (fn n => "v" ^ Int.toString n) (Util.iota card)
+                             val pat = MLAst.AsisPat ("(" ^ ident ^ " (" ^ String.concatWith ", " ("span"::vars) ^ "))")
+                             val rhsAndVars = ListPair.zip (rhs', vars)
+                             fun f (triple, var) = funNameOf triple ^ " " ^ var
+                             val interior =
+                                   (if card = 0 then "" else " ^ ")
+                                   ^ String.concatWith " ^ \", \" ^ " (map f rhsAndVars)
+                             val exp = MLAst.AsisExp ("\"" ^ ident ^ "(\"" ^ interior ^ " ^ \")\"")
+                           in
+                             SOME ([pat], exp)
+                           end
+              val bodies =
+                    if level > 0 then
+                      [([MLAst.AsisPat ("xs")],
+                        MLAst.AsisExp ("\"[\" ^ String.concatWith \", \" (map "
+                                      ^ funNameOf (typeName, level - 1, kind)
+                                      ^ " xs) ^ \"]\""))]
+                    else
+                      List.mapPartial ruleToBody rules
+            in
+              (funNameOf (typeName, level, kind), bodies)
+            end
+    in
+      (* this makes mutually recursive functions *)
+      MLAst.Fun (map makeFun triples)
+    end
+
   (* example output:
        datatype category =
          EOF
@@ -1141,8 +1209,10 @@ structure CodeGenerator = struct
          term identifiers should be removed *)
       val idents = Util.uniq (Util.minus (nontermIdents, termIdents))
       val astDatatype = makeAstDatatype idents rules
+      val showAstFun = makeShowAstFun rules
       val astStructure =
-        MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
+        MLAst.Structure [
+          ("Ast", MLAst.Struct [MLAst.Dec astDatatype, MLAst.Dec showAstFun])]
     
       (* Category *)
       val categoryDatatype = makeCategoryDatatype "category" categories
