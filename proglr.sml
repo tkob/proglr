@@ -915,20 +915,24 @@ structure CodeGenerator = struct
   fun makeShowFun tokens =
     let
       fun makePat symbol = 
-        case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
-          (Grammar.Nonterm, _) =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
-        | (Grammar.UnitTerm, _) => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
-        | (_, 0) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
-        | (_, _) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
+            let val cat = symToCategory symbol in
+              case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
+                   (Grammar.Nonterm, _) =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+                 | (Grammar.UnitTerm, _) => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
+                 | (_, 0) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+                 | (_, _) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+            end
       fun makeBody symbol =
-        case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
-          (Grammar.UnitTerm, _) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
-        | (Grammar.IntTerm,  0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Int.toString a ^ \")\"")
-        | (Grammar.StrTerm,  0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ a ^ \")\"")
-        | (Grammar.CharTerm, 0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Char.toString a ^ \")\"")
-        | (Grammar.RealTerm, 0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Real.toString a ^ \")\"")
-        | (Grammar.Nonterm,  _) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
-        | (_, _)                => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
+            let val cat = symToCategory symbol in
+              case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
+                   (Grammar.UnitTerm, _) => MLAst.AsisExp ("\"" ^ cat ^ "\"")
+                 | (Grammar.IntTerm,  0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Int.toString a ^ \")\"")
+                 | (Grammar.StrTerm,  0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ a ^ \")\"")
+                 | (Grammar.CharTerm, 0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ String.str a ^ \")\"")
+                 | (Grammar.RealTerm, 0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Real.toString a ^ \")\"")
+                 | (Grammar.Nonterm,  _) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Ast.show" ^ Util.chopDigit cat ^ " a ^ \")\"")
+                 | (_, _)                => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Ast.show" ^ Util.chopDigit cat ^ " a ^ \")\"")
+            end
       val patExps = List.map (fn token => ([makePat token], makeBody token)) tokens
     in
       MLAst.Fun [("show", patExps)]
