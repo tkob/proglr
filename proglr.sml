@@ -65,6 +65,14 @@ structure Util = struct
   fun withTextOut name = bracket (TextIO.openOut name) TextIO.closeOut
   fun withBinIn name = bracket (BinIO.openIn name) BinIO.closeIn
   fun withBinOut name = bracket (BinIO.openOut name) BinIO.closeOut
+
+  fun iota n =
+        let
+          fun iota' (0, l) = l
+            | iota' (n, l) = iota' (n - 1, (n - 1)::l)
+        in
+          iota' (n, [])
+        end
 end
 
 signature INTERN = sig
@@ -886,13 +894,11 @@ structure CodeGenerator = struct
       | Grammar.Nonterm  => SOME (MLAst.Tycon (prefix ^ (nt2dt sym) ^ suffix level))
     end
 
+  fun addPrimes s 0 = s
+    | addPrimes s n = addPrimes s (n - 1) ^ "'"
+
   fun symToCategory sym =
-    let
-      fun addPrimes s 0 = s
-        | addPrimes s n = addPrimes s (n - 1) ^ "'"
-    in
-      addPrimes (Grammar.identOfSymbol sym) (Grammar.levelOf sym)
-    end
+        addPrimes (Grammar.identOfSymbol sym) (Grammar.levelOf sym)
 
   (* string -> Grammar.symbol list -> MLAst.dec *)
   (* example output: datatype token = EOF | ... *)
@@ -909,20 +915,24 @@ structure CodeGenerator = struct
   fun makeShowFun tokens =
     let
       fun makePat symbol = 
-        case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
-          (Grammar.Nonterm, _) =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
-        | (Grammar.UnitTerm, _) => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
-        | (_, 0) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
-        | (_, _) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " _)")
+            let val cat = symToCategory symbol in
+              case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
+                   (Grammar.Nonterm, _) =>  MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+                 | (Grammar.UnitTerm, _) => MLAst.AsisPat ("(" ^ symToCategory symbol ^ ")")
+                 | (_, 0) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+                 | (_, _) =>                MLAst.AsisPat ("(" ^ symToCategory symbol ^ " a)")
+            end
       fun makeBody symbol =
-        case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
-          (Grammar.UnitTerm, _) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
-        | (Grammar.IntTerm,  0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Int.toString a ^ \")\"")
-        | (Grammar.StrTerm,  0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ a ^ \")\"")
-        | (Grammar.CharTerm, 0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Char.toString a ^ \")\"")
-        | (Grammar.RealTerm, 0) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "(\" ^ Real.toString a ^ \")\"")
-        | (Grammar.Nonterm,  _) => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
-        | (_, _)                => MLAst.AsisExp ("\"" ^ symToCategory symbol ^ "\"")
+            let val cat = symToCategory symbol in
+              case (Grammar.kindOf symbol, Grammar.levelOf symbol) of
+                   (Grammar.UnitTerm, _) => MLAst.AsisExp ("\"" ^ cat ^ "\"")
+                 | (Grammar.IntTerm,  0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Int.toString a ^ \")\"")
+                 | (Grammar.StrTerm,  0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ a ^ \")\"")
+                 | (Grammar.CharTerm, 0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ String.str a ^ \")\"")
+                 | (Grammar.RealTerm, 0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Real.toString a ^ \")\"")
+                 | (Grammar.Nonterm,  _) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Ast.show" ^ Util.chopDigit cat ^ " a ^ \")\"")
+                 | (_, _)                => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Ast.show" ^ Util.chopDigit cat ^ " a ^ \")\"")
+            end
       val patExps = List.map (fn token => ([makePat token], makeBody token)) tokens
     in
       MLAst.Fun [("show", patExps)]
@@ -960,6 +970,74 @@ structure CodeGenerator = struct
     in
       (* this makes mutually recursive datatypes *)
       MLAst.Datatype (List.map makeDatatype idents)
+    end
+
+  fun makeShowAstFun rules =
+    let
+      val lhss = map Grammar.lhsOf rules
+      val typeNameOfSym = Util.chopDigit o Grammar.identOfSymbol
+      fun symToTriple sym =
+            let
+              val typeName = typeNameOfSym sym
+              val level = Grammar.levelOf sym
+              val kind = Grammar.kindOf sym
+            in
+              (typeName, level, kind)
+            end
+      val triples = Util.uniq (map symToTriple lhss)
+      (* string * int -> fvalbind i.e. ident * (pat list * exp) list *)
+      fun makeFun (typeName, level, kind) =
+            let
+              fun funNameOf (typeName, 0, Grammar.IntTerm) =
+                    "Int.toString"
+                | funNameOf (typeName, 0, Grammar.StrTerm) =
+                    "String.toString"
+                | funNameOf (typeName, 0, Grammar.CharTerm) =
+                    "String.str"
+                | funNameOf (typeName, 0, Grammar.RealTerm) =
+                    "Real.toString"
+                | funNameOf (typeName, level, _) =
+                    "show" ^ addPrimes typeName level
+              val rules = List.filter (fn rule => (typeNameOfSym o Grammar.lhsOf) rule = typeName) rules
+              fun ruleToBody rule =
+                    case Grammar.consOf rule of
+                         Grammar.Wild     => NONE
+                       | Grammar.ListE    => NONE
+                       | Grammar.ListCons => NONE
+                       | Grammar.ListOne  => NONE
+                       | Grammar.Id ident =>
+                           let
+                             fun hasValue sym =
+                                   case Grammar.kindOf sym of
+                                        Grammar.UnitTerm => false
+                                      |  _ => true
+                             val rhs' = map symToTriple (List.filter hasValue (Grammar.rhsOf rule))
+                             val card = length rhs'
+                             val vars = map (fn n => "v" ^ Int.toString n) (Util.iota card)
+                             val pat = MLAst.AsisPat ("(" ^ ident ^ " (" ^ String.concatWith ", " ("span"::vars) ^ "))")
+                             val rhsAndVars = ListPair.zip (rhs', vars)
+                             fun f (triple, var) = funNameOf triple ^ " " ^ var
+                             val interior =
+                                   (if card = 0 then "" else " ^ ")
+                                   ^ String.concatWith " ^ \", \" ^ " (map f rhsAndVars)
+                             val exp = MLAst.AsisExp ("\"" ^ ident ^ "(\"" ^ interior ^ " ^ \")\"")
+                           in
+                             SOME ([pat], exp)
+                           end
+              val bodies =
+                    if level > 0 then
+                      [([MLAst.AsisPat ("xs")],
+                        MLAst.AsisExp ("\"[\" ^ String.concatWith \", \" (map "
+                                      ^ funNameOf (typeName, level - 1, kind)
+                                      ^ " xs) ^ \"]\""))]
+                    else
+                      List.mapPartial ruleToBody rules
+            in
+              (funNameOf (typeName, level, kind), bodies)
+            end
+    in
+      (* this makes mutually recursive functions *)
+      MLAst.Fun (map makeFun triples)
     end
 
   (* example output:
@@ -1135,8 +1213,10 @@ structure CodeGenerator = struct
          term identifiers should be removed *)
       val idents = Util.uniq (Util.minus (nontermIdents, termIdents))
       val astDatatype = makeAstDatatype idents rules
+      val showAstFun = makeShowAstFun rules
       val astStructure =
-        MLAst.Structure [("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
+        MLAst.Structure [
+          ("Ast", MLAst.Struct [MLAst.Dec astDatatype, MLAst.Dec showAstFun])]
     
       (* Category *)
       val categoryDatatype = makeCategoryDatatype "category" categories
