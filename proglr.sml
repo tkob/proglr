@@ -133,7 +133,7 @@ signature GRAMMAR = sig
 
   (* a symbol may be a nonterminal (Nonterm), a terminal bearing no value (UnitTerm)
    * or a terminal bearing a value *)
-  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm | RealTerm
+  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm
   eqtype symbol
 
   (* constructor functions for GRAMMAR types *)
@@ -190,7 +190,7 @@ structure Grammar :> GRAMMAR = struct
   end
   structure SymbolHashTable = HashTable(Handle)
 
-  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm | RealTerm
+  datatype kind = Nonterm | UnitTerm | IntTerm | StrTerm | CharTerm
   type symbol = Handle.t * kind
 
   datatype constructor = Id of string | Wild  | ListE | ListCons | ListOne
@@ -272,7 +272,6 @@ structure Grammar :> GRAMMAR = struct
                       "string" => StrTerm
                     | "int"    => IntTerm
                     | "char"   => CharTerm
-                    | "real"   => RealTerm
                     | t        => raise Fail ("unknown type: " ^ t)
                   val symbol = (hand, kind)
                   val (term, present) = SymbolHashTable.lookupOrInsert' table hand (fn () => symbol)
@@ -890,7 +889,6 @@ structure CodeGenerator = struct
       | Grammar.IntTerm  => SOME (MLAst.Tycon ("int" ^ suffix level))
       | Grammar.StrTerm  => SOME (MLAst.Tycon ("string" ^ suffix level))
       | Grammar.CharTerm => SOME (MLAst.Tycon ("char" ^ suffix level))
-      | Grammar.RealTerm => SOME (MLAst.Tycon ("real" ^ suffix level))
       | Grammar.Nonterm  => SOME (MLAst.Tycon (prefix ^ (nt2dt sym) ^ suffix level))
     end
 
@@ -929,7 +927,6 @@ structure CodeGenerator = struct
                  | (Grammar.IntTerm,  0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Int.toString a ^ \")\"")
                  | (Grammar.StrTerm,  0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ a ^ \")\"")
                  | (Grammar.CharTerm, 0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ String.str a ^ \")\"")
-                 | (Grammar.RealTerm, 0) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Real.toString a ^ \")\"")
                  | (Grammar.Nonterm,  _) => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Ast.show" ^ Util.chopDigit cat ^ " a ^ \")\"")
                  | (_, _)                => MLAst.AsisExp ("\"" ^ cat ^ "(\" ^ Ast.show" ^ Util.chopDigit cat ^ " a ^ \")\"")
             end
@@ -994,8 +991,6 @@ structure CodeGenerator = struct
                     "String.toString"
                 | funNameOf (typeName, 0, Grammar.CharTerm) =
                     "String.str"
-                | funNameOf (typeName, 0, Grammar.RealTerm) =
-                    "Real.toString"
                 | funNameOf (typeName, level, _) =
                     "show" ^ addPrimes typeName level
               val rules = List.filter (fn rule => (typeNameOfSym o Grammar.lhsOf) rule = typeName) rules
@@ -1453,7 +1448,7 @@ structure ResourceGen = struct
           val Parse.Ast.Grammar (_, tokens, defs') = ast
           fun tokenToDef (Parse.Ast.AttrToken (_, "Integer", "int")) =
                 SOME "-DPROGLR_USE_INTEGER"
-            | tokenToDef (Parse.Ast.AttrToken (_, "Double", "real")) =
+            | tokenToDef (Parse.Ast.AttrToken (_, "Double", "string")) =
                 SOME "-DPROGLR_USE_DOUBLE"
             | tokenToDef (Parse.Ast.AttrToken (_, "Char", "char")) =
                 SOME "-DPROGLR_USE_CHAR"
