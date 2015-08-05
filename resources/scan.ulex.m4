@@ -37,7 +37,7 @@ ifdef(`PROGLR_USE_INTEGER', `
 
 ifdef(`PROGLR_USE_DOUBLE', `
 (* Double of floating point numbers, defined digit+ ’.’ digit+ (’e’ ’-’? digit+)? *)
-<INITIAL> {digit}+ "." {digit}+ ("e" "-"? {digit}+)? => (Double (Option.valOf (Real.fromString (yytext))));
+<INITIAL> {digit}+ "." {digit}+ ("e" "-"? {digit}+)? => (Double yytext);
 ')
 
 ifdef(`PROGLR_USE_CHAR', `
