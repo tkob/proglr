@@ -1242,7 +1242,7 @@ structure CodeGenerator = struct
           MLAst.TypeSpec ["strm"],
           MLAst.EqTypeSpec ["pos"],
           MLAst.TypeSpec ["span = pos * pos"], (* dirty *)
-          MLAst.TypeSpec ["tok"],
+          MLAst.EqTypeSpec ["tok"],
           MLAst.ValSpec [("lex", MLAst.AsisType "AntlrStreamPos.sourcemap -> strm -> tok * span * strm")],
           MLAst.ValSpec [("getPos", MLAst.AsisType "strm -> pos")]])]
 
