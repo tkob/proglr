@@ -1540,11 +1540,6 @@ structure Main = struct
                             SOME name => SOME (OS.Path.dir name)
                           | NONE => NONE
     in
-      (* Print the grammar as comment *)
-      TextIO.output (outs, "(*\n");
-      Grammar.printGrammar outs grammar;
-      TextIO.output (outs, "*)\n");
-      (* and then the structure *)
       CodeGenerator.generateParser outs grammar automaton;
 
       (* Write dot file if "-a" option is specified *)
