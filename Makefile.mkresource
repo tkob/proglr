@@ -34,6 +34,7 @@ RESOURCES = $(RESOURCES_DIR)/smlnj-lib/PORTING \
             $(RESOURCES_DIR)/position.sml \
             $(RESOURCES_DIR)/scan.ulex.m4 \
             $(RESOURCES_DIR)/main.sml.m4 \
+            $(RESOURCES_DIR)/main.cm.m4 \
             $(RESOURCES_DIR)/main.mlb.m4 \
             $(RESOURCES_DIR)/main.depend.m4 \
             $(RESOURCES_DIR)/polybuild.tcl \
