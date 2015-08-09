@@ -1405,6 +1405,7 @@ structure ResourceGen = struct
                | "poly" => polyBuild @ smlnjLib @ mlLpt
                | "alice" => smlnjLib @ mlLpt
                | "mosml" => position @ smlnjLib @ mlLpt
+               | "smlnj" => []
                | _ => Resource.resources
         in
           List.app emitResource resources
@@ -1419,6 +1420,7 @@ structure ResourceGen = struct
                    | "poly" => ["main.sml.m4", "Makefile.poly.m4"]
                    | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
                    | "mosml" => ["main.sml.m4", "Makefile.mosml.m4"]
+                   | "smlnj" => ["main.sml.m4", "main.cm.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
@@ -1426,6 +1428,7 @@ structure ResourceGen = struct
                             | "poly" => ["-DPROGLR_COMPILER=poly"]
                             | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | "mosml" => ["-DPROGLR_COMPILER=mosml"]
+                            | "smlnj" => ["-DPROGLR_COMPILER=smlnj"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
