@@ -1,0 +1,5 @@
+getopt-sig.o: getopt-sig.sml
+getopt.o: getopt.sml getopt.smi getopt-sig.sml getopt.smi
+getopt-test.o: getopt-test.sml getopt-test.smi getopt-sig.sml getopt.smi \
+ getopt-test.smi
+boot.o: boot.sml boot.smi getopt-sig.sml getopt.smi getopt-test.smi boot.smi

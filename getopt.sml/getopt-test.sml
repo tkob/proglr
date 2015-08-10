@@ -34,8 +34,17 @@ structure GetOptTest = struct
           else print "E"
         end
 
-  fun run () = (List.app test tests; print "\n")
-
+  fun run (name, arguments) = (
+        List.app test tests;
+        print "\n";
+        OS.Process.success)
 end
 
-fun main () = GetOptTest.run ()
+fun main () =
+      let
+        val name = CommandLine.name ()
+        val arguments = CommandLine.arguments ()
+      in
+        GetOptTest.run (name, arguments);
+        ()
+      end
