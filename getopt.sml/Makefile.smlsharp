@@ -1,0 +1,30 @@
+# Makefile for separate compilation with SML#.
+
+SMLSHARP = smlsharp
+SMLSHARPFLAGS = 
+DEPEND = Makefile.smlsharp.depend
+
+EXEC = getopt-test
+SRCS = \
+       getopt-sig.sml \
+       getopt.sml \
+       getopt-test.sml \
+       boot.sml
+
+OBJS = $(SRCS:.sml=.o)
+
+all: $(EXEC)
+
+$(EXEC): boot.smi $(EXEC).smi $(OBJS)
+	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ boot.smi
+
+%.o: %.sml
+	$(SMLSHARP) $(SMLSHARPFLAGS) -c $<
+
+depend:
+	$(SMLSHARP) -MM $(SRCS) > $(DEPEND)
+
+include $(DEPEND)
+
+clean:
+	rm -f $(OBJS) $(EXEC)

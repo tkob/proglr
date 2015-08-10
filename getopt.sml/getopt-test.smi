@@ -1,0 +1,4 @@
+_require "basis.smi"
+_require "getopt.smi"
+
+val main : unit -> unit

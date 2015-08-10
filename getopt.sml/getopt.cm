@@ -1,0 +1,6 @@
+Library
+  structure GetOpt
+is
+  $/basis.cm
+  getopt-sig.sml
+  getopt.sml
