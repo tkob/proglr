@@ -1,7 +1,5 @@
 structure Parse = ParseFun(Lexer)
 
-open Parse.Ast
-
 structure Main = struct
   fun main (_, arguments) =
        let
