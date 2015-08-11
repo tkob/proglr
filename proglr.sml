@@ -1567,26 +1567,36 @@ structure Main = struct
       ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
+
+    fun main (name, arguments) =
+          let
+            val (opts, sources) = Args.parse arguments
+            fun replaceExt (path, newExt) =
+                  let
+                    val {base, ext} = OS.Path.splitBaseExt path
+                  in
+                    base ^ "." ^ newExt
+                  end
+          in
+            case sources of
+                 [] => generate TextIO.stdIn NONE TextIO.stdOut NONE []
+               | [fileName] =>
+                   let
+                     val outFileName = case Args.getO opts of
+                                            SOME out => out
+                                          | NONE => replaceExt (fileName, "sml")
+                   in
+                     Util.withTextIn fileName (fn ins =>
+                     Util.withTextOut outFileName (fn outs =>
+                     generate ins (SOME fileName) outs (SOME outFileName) opts))
+                   end
+               | _ => raise Fail "multiple input files";
+            OS.Process.success
+          end
+          handle e => (
+            TextIO.output (TextIO.stdErr, exnMessage e ^ "\n");
+            OS.Process.failure)
 end
 
 fun main () =
-  let
-    val (opts, sources) = Args.parse (CommandLine.arguments ())
-    fun replaceExt (path, newExt) =
-      let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
-  in
-    case sources of
-         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut NONE []
-       | [fileName] =>
-           let
-             val outFileName = case Args.getO opts of
-                                    SOME out => out
-                                  | NONE => replaceExt (fileName, "sml")
-           in
-             Util.withTextIn fileName (fn ins =>
-             Util.withTextOut outFileName (fn outs =>
-             Main.generate ins (SOME fileName) outs (SOME outFileName) opts))
-           end
-       | _ => raise Fail "multiple input files"
-  end
-  handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
+      ignore (Main.main (CommandLine.name (), CommandLine.arguments ()))
