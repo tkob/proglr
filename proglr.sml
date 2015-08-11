@@ -1498,7 +1498,7 @@ structure ResourceGen = struct
 end
 
 structure Args = struct
-  open GetOpt
+  open Getopt
 
   val opts = [StrOpt #"m", StrOpt #"a", StrOpt #"l", StrOpt #"o"]
 

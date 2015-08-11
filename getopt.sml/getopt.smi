@@ -1,7 +1,7 @@
 _require "basis.smi"
 _require "getopt-sig.sml"
 
-structure GetOpt = struct
+structure Getopt = struct
   datatype opt = FlagOpt of char
                | StrOpt of char
                | IntOpt of char

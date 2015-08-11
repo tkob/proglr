@@ -1,4 +1,4 @@
-structure GetOpt :> GETOPT = struct
+structure Getopt :> GETOPT = struct
   datatype opt = FlagOpt of char
                | StrOpt of char
                | IntOpt of char

@@ -19,9 +19,9 @@ cmlib/hashable.sig
 cmlib/hash-table.sig
 cmlib/hash-table.sml
 
-getopt.sml/getopt-sig.sml
-getopt.sml/getopt.sml
+getopt.sml/getopt.cm
 
 parse.sml
 scan.ulex.sml
+resource.sml
 proglr.sml

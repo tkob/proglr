@@ -1,5 +1,5 @@
 Library
-  structure GetOpt
+  structure Getopt
 is
   $/basis.cm
   getopt-sig.sml

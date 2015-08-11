@@ -1,5 +1,5 @@
-structure GetOptTest = struct
-  open GetOpt
+structure GetoptTest = struct
+  open Getopt
 
   val opts1 = [FlagOpt #"a", FlagOpt #"b", StrOpt #"f", StrOpt #"o"]
   val tests = [
@@ -45,6 +45,6 @@ fun main () =
         val name = CommandLine.name ()
         val arguments = CommandLine.arguments ()
       in
-        GetOptTest.run (name, arguments);
+        GetoptTest.run (name, arguments);
         ()
       end
