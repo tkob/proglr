@@ -2,6 +2,16 @@
 
 ## Quick Start
 
+### SML/NJ
+
+```
+$ ml-build proglr.cm Main.main proglr
+$ cd example/calc
+$ sml @SMLload=../../proglr -m smlnj -o parse.sml -l scan.ulex calc.cf
+$ ml-build main.cm Main.main main
+$ sml @SMLload=main sample.txt
+```
+
 ### MLton
 
 Assuming you have mlton and ml-ulex installed, to run calc example, type:

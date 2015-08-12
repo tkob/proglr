@@ -1405,6 +1405,7 @@ structure ResourceGen = struct
                | "poly" => polyBuild @ smlnjLib @ mlLpt
                | "alice" => smlnjLib @ mlLpt
                | "mosml" => position @ smlnjLib @ mlLpt
+               | "smlnj" => []
                | _ => Resource.resources
         in
           List.app emitResource resources
@@ -1419,6 +1420,7 @@ structure ResourceGen = struct
                    | "poly" => ["main.sml.m4", "Makefile.poly.m4"]
                    | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
                    | "mosml" => ["main.sml.m4", "Makefile.mosml.m4"]
+                   | "smlnj" => ["main.sml.m4", "main.cm.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
@@ -1426,6 +1428,7 @@ structure ResourceGen = struct
                             | "poly" => ["-DPROGLR_COMPILER=poly"]
                             | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | "mosml" => ["-DPROGLR_COMPILER=mosml"]
+                            | "smlnj" => ["-DPROGLR_COMPILER=smlnj"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
@@ -1495,7 +1498,7 @@ structure ResourceGen = struct
 end
 
 structure Args = struct
-  open GetOpt
+  open Getopt
 
   val opts = [StrOpt #"m", StrOpt #"a", StrOpt #"l", StrOpt #"o"]
 
@@ -1564,26 +1567,36 @@ structure Main = struct
       ()
     end
     handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
+
+    fun main (name, arguments) =
+          let
+            val (opts, sources) = Args.parse arguments
+            fun replaceExt (path, newExt) =
+                  let
+                    val {base, ext} = OS.Path.splitBaseExt path
+                  in
+                    base ^ "." ^ newExt
+                  end
+          in
+            case sources of
+                 [] => generate TextIO.stdIn NONE TextIO.stdOut NONE []
+               | [fileName] =>
+                   let
+                     val outFileName = case Args.getO opts of
+                                            SOME out => out
+                                          | NONE => replaceExt (fileName, "sml")
+                   in
+                     Util.withTextIn fileName (fn ins =>
+                     Util.withTextOut outFileName (fn outs =>
+                     generate ins (SOME fileName) outs (SOME outFileName) opts))
+                   end
+               | _ => raise Fail "multiple input files";
+            OS.Process.success
+          end
+          handle e => (
+            TextIO.output (TextIO.stdErr, exnMessage e ^ "\n");
+            OS.Process.failure)
 end
 
 fun main () =
-  let
-    val (opts, sources) = Args.parse (CommandLine.arguments ())
-    fun replaceExt (path, newExt) =
-      let val {base, ext} = OS.Path.splitBaseExt path in base ^ "." ^ newExt end
-  in
-    case sources of
-         [] => Main.generate TextIO.stdIn NONE TextIO.stdOut NONE []
-       | [fileName] =>
-           let
-             val outFileName = case Args.getO opts of
-                                    SOME out => out
-                                  | NONE => replaceExt (fileName, "sml")
-           in
-             Util.withTextIn fileName (fn ins =>
-             Util.withTextOut outFileName (fn outs =>
-             Main.generate ins (SOME fileName) outs (SOME outFileName) opts))
-           end
-       | _ => raise Fail "multiple input files"
-  end
-  handle e => TextIO.output (TextIO.stdErr, exnMessage e ^ "\n")
+      ignore (Main.main (CommandLine.name (), CommandLine.arguments ()))
