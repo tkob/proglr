@@ -1,0 +1,34 @@
+# vim: set filetype=tcl :
+
+set tempdir [mktempdir temp_]
+set fixturedir [file normalize $srcdir/fixture]
+
+foreach project [glob -nocomplain -directory $fixturedir -tails *] {
+    set grammar $fixturedir/$project/${project}.cf
+    set projectdir $tempdir/$project
+    file mkdir $projectdir
+    cd $projectdir
+
+    spawn sml @SMLload=$proglr -m smlnj -l scan.ulex -o parse.sml $grammar
+    expect eof
+    if {[exitstatus] != 0} { fail "$project: proglr failed"; continue }
+    
+    spawn ml-build main.cm Main.main main
+    expect eof
+    if {[exitstatus] != 0} { fail "$project: build failed"; continue }
+    
+    set numFailure 0
+    foreach input [glob -nocomplain -directory $fixturedir/$project -tails input*.txt] {
+        regexp {(\d+)parse(s)?} $input match numParses
+        spawn sml @SMLload=$projectdir/main $fixturedir/$project/$input
+        expect {
+            -re "^$numParses parse\\(s\\)" { pass "$project: $input" }
+            default { fail "$project: $input"; incr numFailure }
+        }
+    }
+
+    if {$numFailure == 0} { pass $project }
+    file delete -force -- $projectdir
+}
+
+file delete -force -- $tempdir
