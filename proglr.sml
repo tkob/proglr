@@ -1432,12 +1432,14 @@ structure ResourceGen = struct
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
-                                          "-DPROGLR_PARSE_ALC=" ^ OS.Path.base f ^ ".alc"]
+                                          "-DPROGLR_PARSE_ALC=" ^ OS.Path.base f ^ ".alc",
+                                          "-DPROGLR_PARSE_SMI=" ^ OS.Path.base f ^ ".smi"]
                              | NONE => []
           val scanDefs = case l of
                           SOME f => ["-DPROGLR_SCAN_ULEX=" ^ f,
                                      "-DPROGLR_SCAN_SML=" ^ f ^ ".sml",
-                                     "-DPROGLR_SCAN_ALC=" ^ f ^ ".alc"]
+                                     "-DPROGLR_SCAN_ALC=" ^ f ^ ".alc",
+                                     "-DPROGLR_SCAN_SMI=" ^ f ^ ".smi"]
                         | NONE => []
           val defs = compDefs @ parseDefs @ scanDefs
         in
