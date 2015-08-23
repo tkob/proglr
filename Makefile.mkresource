@@ -42,7 +42,8 @@ RESOURCES = $(RESOURCES_DIR)/smlnj-lib/PORTING \
             $(RESOURCES_DIR)/polybuild.tcl \
             $(RESOURCES_DIR)/Makefile.poly.m4 \
             $(RESOURCES_DIR)/Makefile.alice.m4 \
-            $(RESOURCES_DIR)/Makefile.mosml.m4
+            $(RESOURCES_DIR)/Makefile.mosml.m4 \
+            $(RESOURCES_DIR)/Makefile.smlsharp.m4
 
 resource.sml: $(MKRESOURCE) $(RESOURCES)
 	$(MKRESOURCE) Resource $(RESOURCES_DIR) $(RESOURCES) > resource.sml
