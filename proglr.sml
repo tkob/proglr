@@ -1398,6 +1398,7 @@ structure ResourceGen = struct
           val mlLpt = List.filter (String.isPrefix "ml-lpt" o #1) Resource.resources
           val polyBuild = List.filter (fn (n, _) => n = "polybuild.tcl") Resource.resources
           val position = List.filter (fn (n, _) => n = "position.sml") Resource.resources
+          val smlsharpDepend = List.filter (fn (n, _) => n = "Makefile.smlsharp.depend") Resource.resources
           val resources =
             case m of
                  "mlton" => []
@@ -1406,6 +1407,7 @@ structure ResourceGen = struct
                | "alice" => smlnjLib @ mlLpt
                | "mosml" => position @ smlnjLib @ mlLpt
                | "smlnj" => []
+               | "smlsharp" => smlsharpDepend @ smlnjLib @ mlLpt
                | _ => Resource.resources
         in
           List.app emitResource resources
@@ -1421,6 +1423,7 @@ structure ResourceGen = struct
                    | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
                    | "mosml" => ["main.sml.m4", "Makefile.mosml.m4"]
                    | "smlnj" => ["main.sml.m4", "main.cm.m4"]
+                   | "smlsharp" => ["main.sml.m4", "main.smi.m4", "scan.ulex.smi.m4", "Makefile.smlsharp.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
@@ -1429,6 +1432,7 @@ structure ResourceGen = struct
                             | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | "mosml" => ["-DPROGLR_COMPILER=mosml"]
                             | "smlnj" => ["-DPROGLR_COMPILER=smlnj"]
+                            | "smlsharp" => ["-DPROGLR_COMPILER=smlsharp"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
