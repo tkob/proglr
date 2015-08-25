@@ -25,7 +25,7 @@ OBJS = $(SRCS:.sml=.o)
 all: $(EXEC)
 
 $(EXEC): $(EXEC).smi $(OBJS)
-	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@
+	$(SMLSHARP) $(SMLSHARPFLAGS) -o $@ $(EXEC).smi
 
 scan.ulex.sml: scan.ulex
 	ml-ulex scan.ulex
