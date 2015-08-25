@@ -1304,6 +1304,42 @@ structure CodeGenerator = struct
       MLAst.printSigdec outs 0 lexSignature;
       MLAst.printFundec outs 0 parseFunctor
     end
+
+  fun generateInterface outs grammar automaton =
+        let
+          val tokens = Grammar.EOF :: Grammar.termsOf grammar
+          val tokenDatatype = makeTokenDatatype "token" tokens
+          val tokenShowFun = makeShowFun tokens
+          val tokenStructure =
+            MLAst.Structure [("Token", MLAst.Struct [MLAst.Dec tokenDatatype])]
+          val nonterms = Grammar.nontermsOf grammar
+          val rules = Grammar.rulesOf grammar
+          val nontermIdents = map (Util.chopDigit o Grammar.identOfSymbol) nonterms
+          val termIdents = map (Util.chopDigit o Grammar.identOfSymbol) tokens
+          val idents = Util.uniq (Util.minus (nontermIdents, termIdents))
+          val astDatatype = makeAstDatatype idents rules
+          val astStructure =
+            MLAst.Structure [
+              ("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
+          val astType =
+              Util.toLower (Util.chopDigit (Grammar.identOfSymbol (Grammar.startSymbolOf grammar)))
+        in
+          TextIO.output (outs, "_require \"basis.smi\"\n");
+          TextIO.output (outs, "_require \"ml-lpt/lib/stream-pos.smi\"\n\n");
+          MLAst.printStrdec outs 0 tokenStructure;
+          TextIO.output (outs, "functor ParseFun(Lex : sig\n");
+          TextIO.output (outs, "  type strm\n");
+          TextIO.output (outs, "  eqtype pos\n");
+          TextIO.output (outs, "  type span = pos * pos\n");
+          TextIO.output (outs, "  eqtype tok\n");
+          TextIO.output (outs, "  val lex : AntlrStreamPos.sourcemap -> strm -> tok * span * strm\n");
+          TextIO.output (outs, "  val getPos : strm -> pos\n");
+          TextIO.output (outs, "end where type tok = Token.token and type pos = AntlrStreamPos.pos) = struct\n");
+          MLAst.printStrdec outs 2 astStructure;
+          TextIO.output (outs, "  val parse : AntlrStreamPos.sourcemap -> Lex.strm -> Ast." ^ astType ^ " list\n");
+          TextIO.output (outs, "end");
+          ()
+        end
 end
 
 structure ResourceGen = struct
@@ -1574,6 +1610,14 @@ structure Main = struct
          | SOME dir =>
              case Args.getM opts of
                   SOME m => (
+                    case (m, outFileName) of
+                         ("smlsharp", SOME outFileName) =>
+                           let
+                             val smiFileName = replaceExt (outFileName, "smi")
+                           in
+                             Util.withTextOut smiFileName (fn outs =>
+                               CodeGenerator.generateInterface outs grammar automaton)
+                           end;
                     ResourceGen.generateResources m dir;
                     ResourceGen.expandResources m dir outFileName lexFileName)
                 | NONE => ();
