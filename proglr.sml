@@ -1520,6 +1520,13 @@ structure Args = struct
 end
 
 structure Main = struct
+  fun replaceExt (path, newExt) =
+        let
+          val {base, ext} = OS.Path.splitBaseExt path
+        in
+          base ^ "." ^ newExt
+        end
+
   fun writeDot automaton fileName =
         Util.withTextOut fileName (fn outs =>
         Automaton.printAutomaton outs automaton)
@@ -1577,12 +1584,6 @@ structure Main = struct
     fun main (name, arguments) =
           let
             val (opts, sources) = Args.parse arguments
-            fun replaceExt (path, newExt) =
-                  let
-                    val {base, ext} = OS.Path.splitBaseExt path
-                  in
-                    base ^ "." ^ newExt
-                  end
           in
             case sources of
                  [] => generate TextIO.stdIn NONE TextIO.stdOut NONE []
