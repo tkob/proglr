@@ -72,3 +72,16 @@ $ make -f Makefile.mosml depend
 $ make -f Makefile.mosml
 $ ./main sample.txt
 ```
+
+### SML# ###
+
+Assuming you have compiled proglr by MLton or Poly/ML,
+and installed smlsharp and ml-ulex, to run calc example, type:
+
+```
+$ cd example/calc
+$ ../../proglr -m smlsharp -o parse.sml -l scan.ulex calc.cf
+$ make -f Makefile.smlsharp depend
+$ make -f Makefile.smlsharp
+$ ./main sample.txt
+```
