@@ -1304,6 +1304,42 @@ structure CodeGenerator = struct
       MLAst.printSigdec outs 0 lexSignature;
       MLAst.printFundec outs 0 parseFunctor
     end
+
+  fun generateInterface outs grammar automaton =
+        let
+          val tokens = Grammar.EOF :: Grammar.termsOf grammar
+          val tokenDatatype = makeTokenDatatype "token" tokens
+          val tokenShowFun = makeShowFun tokens
+          val tokenStructure =
+            MLAst.Structure [("Token", MLAst.Struct [MLAst.Dec tokenDatatype])]
+          val nonterms = Grammar.nontermsOf grammar
+          val rules = Grammar.rulesOf grammar
+          val nontermIdents = map (Util.chopDigit o Grammar.identOfSymbol) nonterms
+          val termIdents = map (Util.chopDigit o Grammar.identOfSymbol) tokens
+          val idents = Util.uniq (Util.minus (nontermIdents, termIdents))
+          val astDatatype = makeAstDatatype idents rules
+          val astStructure =
+            MLAst.Structure [
+              ("Ast", MLAst.Struct [MLAst.Dec astDatatype])]
+          val astType =
+              Util.toLower (Util.chopDigit (Grammar.identOfSymbol (Grammar.startSymbolOf grammar)))
+        in
+          TextIO.output (outs, "_require \"basis.smi\"\n");
+          TextIO.output (outs, "_require \"ml-lpt/lib/stream-pos.smi\"\n\n");
+          MLAst.printStrdec outs 0 tokenStructure;
+          TextIO.output (outs, "functor ParseFun(Lex : sig\n");
+          TextIO.output (outs, "  type strm\n");
+          TextIO.output (outs, "  eqtype pos\n");
+          TextIO.output (outs, "  type span = pos * pos\n");
+          TextIO.output (outs, "  eqtype tok\n");
+          TextIO.output (outs, "  val lex : AntlrStreamPos.sourcemap -> strm -> tok * span * strm\n");
+          TextIO.output (outs, "  val getPos : strm -> pos\n");
+          TextIO.output (outs, "end where type tok = Token.token and type pos = AntlrStreamPos.pos) = struct\n");
+          MLAst.printStrdec outs 2 astStructure;
+          TextIO.output (outs, "  val parse : AntlrStreamPos.sourcemap -> Lex.strm -> Ast." ^ astType ^ " list\n");
+          TextIO.output (outs, "end");
+          ()
+        end
 end
 
 structure ResourceGen = struct
@@ -1398,6 +1434,7 @@ structure ResourceGen = struct
           val mlLpt = List.filter (String.isPrefix "ml-lpt" o #1) Resource.resources
           val polyBuild = List.filter (fn (n, _) => n = "polybuild.tcl") Resource.resources
           val position = List.filter (fn (n, _) => n = "position.sml") Resource.resources
+          val smlsharpDepend = List.filter (fn (n, _) => n = "Makefile.smlsharp.depend") Resource.resources
           val resources =
             case m of
                  "mlton" => []
@@ -1406,6 +1443,7 @@ structure ResourceGen = struct
                | "alice" => smlnjLib @ mlLpt
                | "mosml" => position @ smlnjLib @ mlLpt
                | "smlnj" => []
+               | "smlsharp" => smlsharpDepend @ smlnjLib @ mlLpt
                | _ => Resource.resources
         in
           List.app emitResource resources
@@ -1421,6 +1459,7 @@ structure ResourceGen = struct
                    | "alice" => ["main.sml.m4", "main.depend.m4", "Makefile.alice.m4"]
                    | "mosml" => ["main.sml.m4", "Makefile.mosml.m4"]
                    | "smlnj" => ["main.sml.m4", "main.cm.m4"]
+                   | "smlsharp" => ["main.sml.m4", "main.smi.m4", "scan.ulex.smi.m4", "Makefile.smlsharp.m4"]
                    | _       => ["main.sml.m4"]
           val compDefs = case m of
                               "mlton" => ["-DPROGLR_COMPILER=mlton"]
@@ -1429,15 +1468,18 @@ structure ResourceGen = struct
                             | "alice" => ["-DPROGLR_COMPILER=alice"]
                             | "mosml" => ["-DPROGLR_COMPILER=mosml"]
                             | "smlnj" => ["-DPROGLR_COMPILER=smlnj"]
+                            | "smlsharp" => ["-DPROGLR_COMPILER=smlsharp"]
                             | _ => []
           val parseDefs = case p of
                                SOME f => ["-DPROGLR_PARSE_SML=" ^ f,
-                                          "-DPROGLR_PARSE_ALC=" ^ OS.Path.base f ^ ".alc"]
+                                          "-DPROGLR_PARSE_ALC=" ^ OS.Path.base f ^ ".alc",
+                                          "-DPROGLR_PARSE_SMI=" ^ OS.Path.base f ^ ".smi"]
                              | NONE => []
           val scanDefs = case l of
                           SOME f => ["-DPROGLR_SCAN_ULEX=" ^ f,
                                      "-DPROGLR_SCAN_SML=" ^ f ^ ".sml",
-                                     "-DPROGLR_SCAN_ALC=" ^ f ^ ".alc"]
+                                     "-DPROGLR_SCAN_ALC=" ^ f ^ ".alc",
+                                     "-DPROGLR_SCAN_SMI=" ^ f ^ ".smi"]
                         | NONE => []
           val defs = compDefs @ parseDefs @ scanDefs
         in
@@ -1514,6 +1556,13 @@ structure Args = struct
 end
 
 structure Main = struct
+  fun replaceExt (path, newExt) =
+        let
+          val {base, ext} = OS.Path.splitBaseExt path
+        in
+          base ^ "." ^ newExt
+        end
+
   fun writeDot automaton fileName =
         Util.withTextOut fileName (fn outs =>
         Automaton.printAutomaton outs automaton)
@@ -1561,6 +1610,14 @@ structure Main = struct
          | SOME dir =>
              case Args.getM opts of
                   SOME m => (
+                    case (m, outFileName) of
+                         ("smlsharp", SOME outFileName) =>
+                           let
+                             val smiFileName = replaceExt (outFileName, "smi")
+                           in
+                             Util.withTextOut smiFileName (fn outs =>
+                               CodeGenerator.generateInterface outs grammar automaton)
+                           end;
                     ResourceGen.generateResources m dir;
                     ResourceGen.expandResources m dir outFileName lexFileName)
                 | NONE => ();
@@ -1571,12 +1628,6 @@ structure Main = struct
     fun main (name, arguments) =
           let
             val (opts, sources) = Args.parse arguments
-            fun replaceExt (path, newExt) =
-                  let
-                    val {base, ext} = OS.Path.splitBaseExt path
-                  in
-                    base ^ "." ^ newExt
-                  end
           in
             case sources of
                  [] => generate TextIO.stdIn NONE TextIO.stdOut NONE []
