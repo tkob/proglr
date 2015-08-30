@@ -1617,7 +1617,8 @@ structure Main = struct
                            in
                              Util.withTextOut smiFileName (fn outs =>
                                CodeGenerator.generateInterface outs grammar automaton)
-                           end;
+                           end
+                       | _ => ();
                     ResourceGen.generateResources m dir;
                     ResourceGen.expandResources m dir outFileName lexFileName)
                 | NONE => ();
